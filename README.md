@@ -2,6 +2,77 @@
 
 `weatherBOT` is a highly restricted, offline AI Weather Intelligence Platform engineered to operate entirely on isolated Edge devices. It leverages localized Machine Learning models and a local LLM to provide zero-latency, secure weather predictions without relying on real-world internet connectivity or external APIs.
 
+## 🗺️ System Flow Diagram
+
+```text
+                                        USER
+                                          │
+                                          │
+                    ┌─────────────────────▼─────────────────────┐
+                    │               weatherBOT                  │
+                    │         React + TypeScript Frontend       │
+                    └─────────────────────┬─────────────────────┘
+                                          │
+      ┌───────────────────────────────────┼────────────────────────────────────┐
+      │                                   │                                    │
+      ▼                                   ▼                                    ▼
+┌──────────────┐                 ┌────────────────┐                  ┌─────────────────┐
+│ Chat Module  │                 │ Raw Dataset    │                  │ Conversation    │
+│              │                 │ Module         │                  │ History         │
+└──────────────┘                 └────────────────┘                  └─────────────────┘
+                                          │
+                                          ▼
+                               ┌────────────────────┐
+                               │ Settings Dashboard │
+                               └─────────┬──────────┘
+                                         │
+                                         ▼
+                         ┌────────────────────────────────┐
+                         │        FastAPI Backend         │
+                         └────────────────┬───────────────┘
+                                          │
+               ┌──────────────────────────┼──────────────────────────┐
+               │                          │                          │
+               ▼                          ▼                          ▼
+      Conversation API             Dataset API               Prediction API
+               │                          │                          │
+               └───────────────┬──────────┴───────────────┬──────────┘
+                               ▼                          ▼
+                     MCP Service Router          Authentication (Optional)
+                               │
+──────────────────────────────────────────────────────────────────────────────
+                               │
+        ┌──────────────┬───────────────┬──────────────┬──────────────┐
+        ▼              ▼               ▼              ▼              ▼
+ Conversation     CSV Service     Graph Service   GNN Service   History Service
+ Service
+        │              │               │              │              │
+        ▼              ▼               ▼              ▼              ▼
+ NLP Engine     Data Processing    Visualization   Prediction     Conversation DB
+                                    Engine         Engine
+──────────────────────────────────────────────────────────────────────────────
+                               │
+         ┌─────────────────────┼────────────────────────┐
+         ▼                     ▼                        ▼
+  Dataset Manager      Model Manager          Research Engine
+         │                     │                        │
+         ▼                     ▼                        ▼
+ Dataset Database      Model Repository       Statistical Analysis
+──────────────────────────────────────────────────────────────────────────────
+                               │
+                               ▼
+                    Explainable AI Engine
+                               │
+                               ▼
+                    Recommendation Engine
+                               │
+                               ▼
+                   Natural Language Generator
+                               │
+                               ▼
+                          Chat Response
+```
+
 ## 🏗️ Architecture Stack
 
 ### Backend (Python/FastAPI)
