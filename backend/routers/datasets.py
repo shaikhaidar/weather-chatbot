@@ -50,6 +50,14 @@ async def upload_dataset(background_tasks: BackgroundTasks, file: UploadFile = F
         # Trigger background learning
         background_tasks.add_task(run_self_learning, contents, db_dataset.id)
         
+        # Save the uploaded CSV file to disk
+        import os
+        upload_dir = "backend/data"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(contents)
+        
         return db_dataset
     except Exception as e:
         traceback.print_exc()

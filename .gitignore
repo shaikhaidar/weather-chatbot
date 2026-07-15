@@ -60,3 +60,6 @@ logs/
 # Databases & Patch files
 *.db
 pr_diff.txt
+
+# Uploaded weather datasets
+backend/data/
