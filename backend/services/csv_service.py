@@ -23,7 +23,7 @@ class CSVService:
         """Remove duplicates, drop all-NaN columns, ffill remaining NaNs."""
         df = df.drop_duplicates()
         df = df.dropna(axis=1, how="all")
-        df = df.fillna(method="ffill").fillna(method="bfill")
+        df = df.ffill().bfill()
         return df
 
     @staticmethod
