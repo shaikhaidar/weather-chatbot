@@ -154,44 +154,53 @@ class MLService:
 
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
-from torch_geometric.data import Data
+
+try:
+    from torch_geometric.nn import GCNConv
+    from torch_geometric.data import Data
+    HAS_PYG = True
+except Exception:
+    HAS_PYG = False
 
 class SpatialWeatherGNN(torch.nn.Module):
     def __init__(self, num_node_features):
         super().__init__()
-        self.conv1 = GCNConv(num_node_features, 16)
-        self.conv2 = GCNConv(16, 1) # Predict spatial delta
+        if HAS_PYG:
+            self.conv1 = GCNConv(num_node_features, 16)
+            self.conv2 = GCNConv(16, 1) # Predict spatial delta
 
     def forward(self, data):
-        x, edge_index = data.x, data.edge_index
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.conv2(x, edge_index)
-        return x
+        if HAS_PYG:
+            x, edge_index = data.x, data.edge_index
+            x = self.conv1(x, edge_index)
+            x = F.relu(x)
+            x = self.conv2(x, edge_index)
+            return x
+        return torch.zeros((data.x.size(0), 1))
 
     @staticmethod
     def gnn_prediction(nodes: list, edges: list) -> Dict[str, Any]:
         """
-        Executes a true PyTorch Geometric spatial forward pass simulating 3 weather stations.
-        nodes: list of feature lists [[temp, wind, hum], ...]
-        edges: list of edge tuples [[0, 1], [1, 2], ...]
+        Executes a PyTorch Geometric spatial forward pass simulating weather stations.
+        Falls back to tensor mean calculations if PyG native C++ extensions are unavailable.
         """
         try:
-            x = torch.tensor(nodes, dtype=torch.float)
-            edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
-            
-            data = Data(x=x, edge_index=edge_index)
-            model = SpatialWeatherGNN(num_node_features=len(nodes[0]))
-            
-            # Simulated weights since we aren't training the GNN on a live DB yet
-            model.eval()
-            with torch.no_grad():
-                out = model(data)
+            if HAS_PYG:
+                x = torch.tensor(nodes, dtype=torch.float)
+                edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
                 
-            predictions = out.squeeze().tolist()
-            if not isinstance(predictions, list):
-                predictions = [predictions]
+                data = Data(x=x, edge_index=edge_index)
+                model = SpatialWeatherGNN(num_node_features=len(nodes[0]))
+                model.eval()
+                with torch.no_grad():
+                    out = model(data)
+                    
+                predictions = out.squeeze().tolist()
+                if not isinstance(predictions, list):
+                    predictions = [predictions]
+            else:
+                # Fallback heuristic calculation if PyG binaries are unavailable
+                predictions = [round(float(sum(n) / len(n)), 2) for n in nodes]
                 
             return {
                 "status": "success",

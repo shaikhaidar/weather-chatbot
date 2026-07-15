@@ -6,16 +6,37 @@ from routers import datasets, chat, auth, predictions, mcp
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+# Auto-migrate SQLite columns for legacy databases
+from sqlalchemy import text
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE datasets ADD COLUMN status VARCHAR DEFAULT 'COMPLETED'"))
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute(text("ALTER TABLE datasets ADD COLUMN error_message TEXT"))
+        conn.commit()
+    except Exception:
+        pass
+
 app = FastAPI(
     title="weatherBOT API",
     version="2.0.0",
     description="Edge AI Weather Intelligence Platform — Full MCP Architecture",
 )
 
-# Allow CORS for local development
+# Allow CORS for local development (supports flexible Vite dev server ports)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
