@@ -56,3 +56,7 @@ logs/
 *.jpeg
 *.jpg
 *.png
+
+# Databases & Patch files
+*.db
+pr_diff.txt

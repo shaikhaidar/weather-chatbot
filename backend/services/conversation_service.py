@@ -134,7 +134,7 @@ class ConversationService:
                 "model": "llama3.1:8b",
                 "prompt": prompt,
                 "stream": False
-            }, timeout=30)
+            }, timeout=90)
             inference_time = time.time() - start_time
             if res.status_code == 200:
                 bot_response = res.json().get("response", bot_response)
