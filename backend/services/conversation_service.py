@@ -75,7 +75,7 @@ class ConversationService:
                     # Check if dataset CSV file can be read or parsed
                     import os, pandas as pd
                     # Look for file in root or backend dataset directory
-                    possible_paths = [parent_ds.filename, f"backend/{parent_ds.filename}", f"backend/services/{parent_ds.filename}"]
+                    possible_paths = [parent_ds.filename, f"backend/{parent_ds.filename}", f"backend/data/{parent_ds.filename}", f"backend/services/{parent_ds.filename}"]
                     for p in possible_paths:
                         if os.path.exists(p):
                             active_df = pd.read_csv(p)
