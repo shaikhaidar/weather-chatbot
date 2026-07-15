@@ -63,12 +63,59 @@ class ConversationService:
         
         # If it's a simple greeting, we skip loading heavy ML data to save Edge inference tokens
         if intent != IntentType.GREETING:
+            # Fetch active model and parent dataset
+            active_model = db.query(models.ModelVersion).filter(models.ModelVersion.is_active == 1).first()
+            parent_ds = db.query(models.Dataset).filter(models.Dataset.id == active_model.dataset_id).first() if active_model else db.query(models.Dataset).order_by(models.Dataset.id.desc()).first()
+
+            # Date Query Searching logic for uploaded CSV datasets
+            date_record_context = ""
+            active_df = None
+            if parent_ds:
+                try:
+                    # Check if dataset CSV file can be read or parsed
+                    import os, pandas as pd
+                    # Look for file in root or backend dataset directory
+                    possible_paths = [parent_ds.filename, f"backend/{parent_ds.filename}", f"backend/services/{parent_ds.filename}"]
+                    for p in possible_paths:
+                        if os.path.exists(p):
+                            active_df = pd.read_csv(p)
+                            break
+                            
+                    if active_df is not None:
+                        # Search date columns
+                        date_cols = [c for c in active_df.columns if 'date' in c.lower() or 'time' in c.lower()]
+                        if date_cols:
+                            active_df['parsed_date'] = pd.to_datetime(active_df[date_cols[0]], format='mixed', dayfirst=True, errors='coerce')
+                            
+                            # Simple date search keywords from user message
+                            import re
+                            msg_lower = user_message.lower()
+                            # Check for patterns like '22 july', 'july 22', '22/07', '2024-07-22'
+                            matched_rows = None
+                            months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+                            short_months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+                            
+                            day_match = re.search(r'\b(\d{1,2})(st|nd|rd|th)?\b', msg_lower)
+                            month_found = None
+                            for m in months + short_months:
+                                if m in msg_lower:
+                                    month_found = m
+                                    break
+                                    
+                            if day_match and month_found:
+                                day_num = int(day_match.group(1))
+                                matched_rows = active_df[(active_df['parsed_date'].dt.day == day_num) & (active_df['parsed_date'].dt.strftime('%B').str.lower().str.contains(month_found) | active_df['parsed_date'].dt.strftime('%b').str.lower().str.contains(month_found))]
+                            
+                            if matched_rows is not None and not matched_rows.empty:
+                                sample = matched_rows.iloc[0].drop(labels=['parsed_date'], errors='ignore').to_dict()
+                                date_record_context = f"\n[EXACT HISTORICAL CSV DATE RECORD FOUND FOR QUERY]\n{json.dumps(sample, default=str)}\n"
+                except Exception as ex:
+                    logger.warning(f"Date lookup error: {ex}")
+
             # Mode 1: Historical Data Mode (Only CSV/Redacted)
             # Mode 3: Prime Mode (Both)
             if mode in ["historical data mode", "prime"]:
-                active_model = db.query(models.ModelVersion).filter(models.ModelVersion.is_active == 1).first()
                 if active_model:
-                    parent_ds = db.query(models.Dataset).filter(models.Dataset.id == active_model.dataset_id).first()
                     ds_info = f"Filename: {parent_ds.filename} | Time Span: {parent_ds.time_span} | Total Rows: {parent_ds.total_rows} | Sensors: {', '.join(parent_ds.detected_sensors or [])}" if parent_ds else "N/A"
                     ml_context = (
                         f"\n[HISTORICAL CSV MODEL INFO]\n"
@@ -76,32 +123,36 @@ class ConversationService:
                         f"Dataset Context: {ds_info}\n"
                         f"Model Metrics: RMSE={active_model.rmse:.4f}, R2={active_model.accuracy:.4f}, Training Time={active_model.training_time:.2f}s\n"
                         f"Feature Importances: {json.dumps(active_model.feature_importances)}\n"
-                        f"Sample Actual vs Predicted Data Points: {json.dumps(active_model.plot_data)}\n"
+                        f"{date_record_context}\n"
                     )
                 else:
-                    latest_ds = db.query(models.Dataset).order_by(models.Dataset.id.desc()).first()
-                    if latest_ds:
-                        ml_context = f"\n[HISTORICAL CSV MODEL INFO]\nDataset uploaded: '{latest_ds.filename}' ({latest_ds.total_rows} rows, Time Span: {latest_ds.time_span}). Status: {latest_ds.status}.\n"
+                    if parent_ds:
+                        ml_context = f"\n[HISTORICAL CSV MODEL INFO]\nDataset uploaded: '{parent_ds.filename}' ({parent_ds.total_rows} rows, Time Span: {parent_ds.time_span}). Status: {parent_ds.status}.\n{date_record_context}\n"
                     else:
                         ml_context = "\n[HISTORICAL CSV MODEL INFO]\nNo historical datasets have been uploaded yet.\n"
 
             # Mode 2: Live Station Mode (Only IoT/GNN)
             # Mode 3: Prime Mode (Both)
             if mode in ["live station mode", "prime"]:
-                if is_online: # Simulating Edge IoT connection
-                    # Mock local sensor data
-                    nodes = [[24.2, 12, 60], [23.9, 14, 62], [24.5, 10, 58]]
-                    edges = [[0, 1], [1, 2]]
+                from services.gnn_service import GNNService
+                from services.iot_service import IoTService
+                
+                # Check actual hardware status
+                hw_connected = IoTService.is_hardware_connected() if hasattr(IoTService, 'is_hardware_connected') else False
+                
+                # Derive dynamic GNN spatial nodes from active DataFrame if available
+                nodes = GNNService.build_nodes_from_dataframe(active_df) if active_df is not None else [[24.2, 12.0, 60.0], [23.9, 14.0, 62.0], [24.5, 10.0, 58.0]]
+                edges = GNNService.build_edges(len(nodes))
+                
+                gnn_resp = GNNService.predict(nodes, edges)
+                
+                status_str = "CONNECTED (Raspberry Pi Serial/MQTT)" if hw_connected else "SIMULATED / DATASET DRIVEN"
+                live_context = f"\n[SPATIAL EDGE STATION NODES - Status: {status_str}]\n"
+                for idx, node in enumerate(nodes):
+                    live_context += f"Node {idx + 1} (Temp/Wind/Hum): {node}\n"
                     
-                    # Execute PyTorch GNN
-                    from services.ml_service import SpatialWeatherGNN
-                    gnn_resp = SpatialWeatherGNN.gnn_prediction(nodes, edges)
-                    
-                    live_context = f"\n[LIVE EDGE STATION DATA]\nNode 1 (Temp/Wind/Hum): {nodes[0]}\nNode 2: {nodes[1]}\nNode 3: {nodes[2]}\n"
-                    if gnn_resp.get("status") == "success":
-                        gnn_result = f"[GNN SPATIAL PREDICTION (PyTorch)]: The Graph Neural Network predicts a spatial temperature delta of {gnn_resp['spatial_predictions']} across the nodes.\n"
-                else:
-                    live_context = "\n[LIVE EDGE STATION DATA]\nStations Disconnected. No live telemetry available.\n"
+                if gnn_resp.get("status") == "success":
+                    gnn_result = f"[GNN SPATIAL PREDICTION (PyTorch GCN)]: The Graph Neural Network predicts spatial temperature deltas of {gnn_resp['spatial_predictions']} across nodes.\n"
             
         # Prepare context from history
         history = ConversationService.get_session_history(db, session_id)
