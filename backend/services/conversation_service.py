@@ -87,28 +87,39 @@ class ConversationService:
                         if date_cols:
                             active_df['parsed_date'] = pd.to_datetime(active_df[date_cols[0]], format='mixed', dayfirst=True, errors='coerce')
                             
-                            # Simple date search keywords from user message
+                            # Date keyword search & multi-feature forecasting
                             import re
                             msg_lower = user_message.lower()
-                            # Check for patterns like '22 july', 'july 22', '22/07', '2024-07-22'
                             matched_rows = None
                             months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
                             short_months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
                             
                             day_match = re.search(r'\b(\d{1,2})(st|nd|rd|th)?\b', msg_lower)
                             month_found = None
-                            for m in months + short_months:
-                                if m in msg_lower:
+                            month_idx = None
+                            for idx_m, m in enumerate(months):
+                                if m in msg_lower or short_months[idx_m] in msg_lower:
                                     month_found = m
+                                    month_idx = idx_m + 1
                                     break
                                     
-                            if day_match and month_found:
+                            if day_match and month_idx:
                                 day_num = int(day_match.group(1))
-                                matched_rows = active_df[(active_df['parsed_date'].dt.day == day_num) & (active_df['parsed_date'].dt.strftime('%B').str.lower().str.contains(month_found) | active_df['parsed_date'].dt.strftime('%b').str.lower().str.contains(month_found))]
+                                matched_rows = active_df[(active_df['parsed_date'].dt.day == day_num) & (active_df['parsed_date'].dt.month == month_idx)]
                             
-                            if matched_rows is not None and not matched_rows.empty:
-                                sample = matched_rows.iloc[0].drop(labels=['parsed_date'], errors='ignore').to_dict()
-                                date_record_context = f"\n[EXACT HISTORICAL CSV DATE RECORD FOUND FOR QUERY]\n{json.dumps(sample, default=str)}\n"
+                                if matched_rows is not None and not matched_rows.empty:
+                                    sample = matched_rows.iloc[0].drop(labels=['parsed_date'], errors='ignore').to_dict()
+                                    date_record_context = f"\n[EXACT HISTORICAL CSV DATE RECORD FOUND FOR QUERY]\n{json.dumps(sample, default=str)}\n"
+                                else:
+                                    # Future / Target Date Multi-Feature Forecasting Engine
+                                    from services.ml_service import MLService
+                                    forecast_res = MLService.predict_weather_for_date(active_df, day_num, month_idx)
+                                    if forecast_res.get("status") == "success":
+                                        date_record_context = (
+                                            f"\n[PREDICTED MULTI-FEATURE FORECAST FOR REQUESTED TARGET DATE ({day_num:02d}/{month_idx:02d})]\n"
+                                            f"The ML forecasting model trained on historical data projects the following predicted weather features for target date {day_num:02d}/{month_idx:02d}:\n"
+                                            f"{json.dumps(forecast_res['forecasted_features'], indent=2)}\n"
+                                        )
                 except Exception as ex:
                     logger.warning(f"Date lookup error: {ex}")
 
@@ -140,19 +151,19 @@ class ConversationService:
                 # Check actual hardware status
                 hw_connected = IoTService.is_hardware_connected() if hasattr(IoTService, 'is_hardware_connected') else False
                 
-                # Derive dynamic GNN spatial nodes from active DataFrame if available
-                nodes = GNNService.build_nodes_from_dataframe(active_df) if active_df is not None else [[24.2, 12.0, 60.0], [23.9, 14.0, 62.0], [24.5, 10.0, 58.0]]
-                edges = GNNService.build_edges(len(nodes))
-                
-                gnn_resp = GNNService.predict(nodes, edges)
-                
-                status_str = "CONNECTED (Raspberry Pi Serial/MQTT)" if hw_connected else "SIMULATED / DATASET DRIVEN"
-                live_context = f"\n[SPATIAL EDGE STATION NODES - Status: {status_str}]\n"
-                for idx, node in enumerate(nodes):
-                    live_context += f"Node {idx + 1} (Temp/Wind/Hum): {node}\n"
+                if hw_connected:
+                    readings = IoTService.get_multi_node_readings() if hasattr(IoTService, 'get_multi_node_readings') else []
+                    nodes = GNNService.build_nodes_from_iot(readings) if readings else [[24.0, 10.0, 60.0]]
+                    edges = GNNService.build_edges(len(nodes))
+                    gnn_resp = GNNService.predict(nodes, edges)
                     
-                if gnn_resp.get("status") == "success":
-                    gnn_result = f"[GNN SPATIAL PREDICTION (PyTorch GCN)]: The Graph Neural Network predicts spatial temperature deltas of {gnn_resp['spatial_predictions']} across nodes.\n"
+                    live_context = f"\n[LIVE HARDWARE TELEMETRY - Status: CONNECTED (Serial/MQTT)]\n"
+                    for idx, node in enumerate(nodes):
+                        live_context += f"Node {idx + 1} (Temp/Wind/Hum): {node}\n"
+                    if gnn_resp.get("status") == "success":
+                        gnn_result = f"[GNN SPATIAL PREDICTION (PyTorch GCN)]: Spatial deltas across live nodes: {gnn_resp['spatial_predictions']}.\n"
+                else:
+                    live_context = "\n[LIVE HARDWARE TELEMETRY]\nPhysical Weather Station Nodes: DISCONNECTED. No live sensor board detected on Serial or MQTT ports.\n"
             
         # Prepare context from history
         history = ConversationService.get_session_history(db, session_id)

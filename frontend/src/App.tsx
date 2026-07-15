@@ -13,18 +13,21 @@ function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [systemMode, setSystemMode] = useState('Prime');
   
-  // In a real Edge deployment, this would ping the local IoT network. For now, we simulate with navigator.onLine
-  const [isStationConnected, setIsStationConnected] = useState(navigator.onLine);
+  // Hardware connectivity status for physical IoT stations
+  const [isStationConnected, setIsStationConnected] = useState(false);
 
   useEffect(() => {
-    const handleOnline = () => setIsStationConnected(true);
-    const handleOffline = () => setIsStationConnected(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    // Check local hardware IoT status via backend endpoint if available
+    fetch('http://localhost:8000/api/predictions/iot')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.source !== 'simulator' && data.connected) {
+          setIsStationConnected(true);
+        } else {
+          setIsStationConnected(false);
+        }
+      })
+      .catch(() => setIsStationConnected(false));
   }, []);
 
   const handleLogin = (token: string) => {
@@ -63,7 +66,11 @@ function App() {
           </div>
           <div className="flex items-center gap-2 text-sm font-medium">
             <span className={`w-2.5 h-2.5 rounded-full ${isStationConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            {isStationConnected ? <span className="text-green-600">Edge Weather Stations Connected</span> : <span className="text-red-500">Historical Datasets Only</span>}
+            {isStationConnected ? (
+              <span className="text-green-600">Hardware Connected (Serial/MQTT)</span>
+            ) : (
+              <span className="text-red-500">Hardware Disconnected (Historical ML Mode)</span>
+            )}
           </div>
         </header>
 

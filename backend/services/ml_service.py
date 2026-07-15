@@ -106,6 +106,76 @@ class MLService:
         }
 
     @staticmethod
+    def predict_weather_for_date(df: pd.DataFrame, day: int, month: int) -> Dict[str, Any]:
+        """
+        Multi-feature forecasting engine: Trains time-cyclical XGBoost regressors
+        across all numerical weather attributes to project metrics for any future/arbitrary target date.
+        """
+        try:
+            date_cols = [c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()]
+            if not date_cols:
+                return {}
+
+            df_work = df.copy()
+            df_work['parsed_date'] = pd.to_datetime(df_work[date_cols[0]], format='mixed', dayfirst=True, errors='coerce')
+            df_work = df_work.dropna(subset=['parsed_date'])
+
+            if df_work.empty:
+                return {}
+
+            # Feature Engineering: Temporal Cyclical Features
+            df_work['day_of_year'] = df_work['parsed_date'].dt.dayofyear
+            df_work['month_val'] = df_work['parsed_date'].dt.month
+            df_work['sin_day'] = np.sin(2 * np.pi * df_work['day_of_year'] / 365.25)
+            df_work['cos_day'] = np.cos(2 * np.pi * df_work['day_of_year'] / 365.25)
+
+            feature_cols = ['day_of_year', 'month_val', 'sin_day', 'cos_day']
+            numeric_weather_cols = list(df_work.select_dtypes(include=['number']).columns)
+            numeric_weather_cols = [c for c in numeric_weather_cols if c not in feature_cols]
+
+            if not numeric_weather_cols:
+                return {}
+
+            # Target date features computation (using reference non-leap year or target year)
+            dummy_year = 2025
+            import datetime
+            ref_date = datetime.date(dummy_year, month, day)
+            target_doy = ref_date.timetuple().tm_yday
+            sin_target = np.sin(2 * np.pi * target_doy / 365.25)
+            cos_target = np.cos(2 * np.pi * target_doy / 365.25)
+
+            target_X = pd.DataFrame([{
+                'day_of_year': target_doy,
+                'month_val': month,
+                'sin_day': sin_target,
+                'cos_day': cos_target
+            }])
+
+            import torch
+            device_type = "cuda" if torch.cuda.is_available() else "cpu"
+
+            forecasts = {}
+            for col in numeric_weather_cols:
+                clean_series = df_work.dropna(subset=[col])
+                if len(clean_series) < 10:
+                    continue
+                X_mat = clean_series[feature_cols]
+                y_mat = clean_series[col]
+
+                reg = XGBRegressor(n_estimators=60, max_depth=4, random_state=42, tree_method="hist", device=device_type)
+                reg.fit(X_mat, y_mat)
+                pred_val = float(reg.predict(target_X)[0])
+                forecasts[col] = round(pred_val, 2)
+
+            return {
+                "target_date": f"{day:02d}/{month:02d}",
+                "forecasted_features": forecasts,
+                "status": "success"
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    @staticmethod
     def evaluate_and_promote(db: Session, df: pd.DataFrame, dataset_id: int):
         """
         Self-learning loop: trains a new model, compares against the active model, and promotes if better.
