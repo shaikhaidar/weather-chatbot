@@ -67,15 +67,18 @@ class DatasetService:
                 
         if datetime_cols:
             try:
-                df[datetime_cols[0]] = pd.to_datetime(df[datetime_cols[0]])
-                min_time = df[datetime_cols[0]].min()
-                max_time = df[datetime_cols[0]].max()
-                time_span = f"{min_time} to {max_time}"
-                
-                # Estimate frequency
-                if len(df) > 1:
-                    freq = df[datetime_cols[0]].diff().mode()[0]
-                    sampling_frequency = str(freq)
+                df[datetime_cols[0]] = pd.to_datetime(df[datetime_cols[0]], format='mixed', errors='coerce')
+                valid_dates = df[datetime_cols[0]].dropna()
+                if not valid_dates.empty:
+                    min_time = valid_dates.min()
+                    max_time = valid_dates.max()
+                    time_span = f"{min_time} to {max_time}"
+                    
+                    # Estimate frequency
+                    if len(valid_dates) > 1:
+                        freq = valid_dates.diff().mode()
+                        if not freq.empty:
+                            sampling_frequency = str(freq[0])
             except Exception:
                 pass # If parsing fails, just leave it as Unknown
 

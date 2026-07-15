@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-
-const Sidebar = ({ currentView, setCurrentView }: { currentView: str, setCurrentView: (view: string) => void }) => {
+const Sidebar = ({ currentView, setCurrentView }: { currentView: string, setCurrentView: (view: string) => void }) => {
   const views = ['Chat', 'Raw Dataset', 'Conversation History', 'Settings'];
 
   return (

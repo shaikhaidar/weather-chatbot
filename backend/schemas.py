@@ -12,6 +12,8 @@ class DatasetBase(BaseModel):
     duplicate_values: int
     detected_sensors: List[str]
     data_quality_score: float
+    status: Optional[str] = "PROCESSING"
+    error_message: Optional[str] = None
 
 class DatasetCreate(DatasetBase):
     pass

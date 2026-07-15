@@ -16,8 +16,19 @@ def run_self_learning(file_bytes: bytes, dataset_id: int):
     try:
         df = pd.read_csv(io.BytesIO(file_bytes))
         MLService.evaluate_and_promote(db, df, dataset_id)
+        
+        dataset = db.query(models.Dataset).filter(models.Dataset.id == dataset_id).first()
+        if dataset:
+            dataset.status = "COMPLETED"
+            db.commit()
     except Exception as e:
-        print(f"Error in background learning loop: {e}")
+        err_msg = str(e)
+        print(f"Error in background learning loop for dataset {dataset_id}: {err_msg}")
+        dataset = db.query(models.Dataset).filter(models.Dataset.id == dataset_id).first()
+        if dataset:
+            dataset.status = "FAILED"
+            dataset.error_message = err_msg
+            db.commit()
     finally:
         db.close()
 
@@ -47,3 +58,13 @@ async def upload_dataset(background_tasks: BackgroundTasks, file: UploadFile = F
 @router.get("/", response_model=list[schemas.DatasetResponse])
 def get_datasets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(models.Dataset).offset(skip).limit(limit).all()
+
+@router.delete("/{dataset_id}")
+def delete_dataset(dataset_id: int, db: Session = Depends(get_db)):
+    db.query(models.ModelVersion).filter(models.ModelVersion.dataset_id == dataset_id).delete()
+    dataset = db.query(models.Dataset).filter(models.Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    db.delete(dataset)
+    db.commit()
+    return {"message": "Dataset and associated model versions deleted successfully"}

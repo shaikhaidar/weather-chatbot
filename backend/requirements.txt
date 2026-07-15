@@ -12,3 +12,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 torch
 torch_geometric
+mcp
+pyserial
+paho-mqtt
+scipy

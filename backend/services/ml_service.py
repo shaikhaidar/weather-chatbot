@@ -23,15 +23,32 @@ class MLService:
         """
         start_time = time.time()
         
-        # Preprocessing: drop datetime, fill NaNs
-        df_numeric = df.select_dtypes(include=['number']).fillna(df.select_dtypes(include=['number']).mean())
+        # Preprocessing: Clean infinite values and select numeric features
+        df_numeric = df.select_dtypes(include=['number']).replace([np.inf, -np.inf], np.nan)
         
-        # Fallback target column if temperature not found (use last numeric col)
+        # Intelligent target matching using temperature aliases if target_col not directly present
         if target_col not in df_numeric.columns:
-            if len(df_numeric.columns) > 0:
+            from services.dataset_service import DatasetService
+            temp_aliases = DatasetService.SENSOR_ALIASES.get("temperature", [])
+            matched_target = None
+            for col in df_numeric.columns:
+                if any(alias in col.lower() for alias in temp_aliases):
+                    matched_target = col
+                    break
+            if matched_target:
+                target_col = matched_target
+            elif len(df_numeric.columns) > 0:
                 target_col = df_numeric.columns[-1]
             else:
-                return {"error": "No numeric columns found for training."}
+                return {"error": "No valid numeric columns found for training."}
+            
+        # Clean NaNs specifically from the target column before fitting
+        df_numeric = df_numeric.dropna(subset=[target_col])
+        if len(df_numeric) < 10:
+            return {"error": "Dataset has fewer than 10 valid non-NaN target rows for training."}
+            
+        # Fill remaining feature NaNs with mean values
+        df_numeric = df_numeric.fillna(df_numeric.mean())
             
         X = df_numeric.drop(columns=[target_col])
         y = df_numeric[target_col]
@@ -41,18 +58,22 @@ class MLService:
             
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        # Initialize Redacted with GPU support
+        # Dynamic CUDA vs CPU device detection
+        import torch
+        device_type = "cuda" if torch.cuda.is_available() else "cpu"
+        
         model = RedactedRegressor(
             n_estimators=100, 
             random_state=42,
             tree_method="hist", 
-            device="cuda" # This tells Redacted to use the GPU
+            device=device_type
         )
         model.fit(X_train, y_train)
         
         predictions = model.predict(X_test)
         
-        rmse = mean_squared_error(y_test, predictions, squared=False)
+        mse = mean_squared_error(y_test, predictions)
+        rmse = float(np.sqrt(mse))
         mae = mean_absolute_error(y_test, predictions)
         r2 = r2_score(y_test, predictions)
         
@@ -93,8 +114,9 @@ class MLService:
         result = MLService.train_baseline_model(df)
         
         if result.get("status") != "success":
-            print(f"Training failed: {result.get('error')}")
-            return
+            error_reason = result.get('error', 'Unknown training failure')
+            print(f"Training failed: {error_reason}")
+            raise RuntimeError(error_reason)
             
         new_rmse = result["metrics"]["rmse"]
         new_version = result["version"]

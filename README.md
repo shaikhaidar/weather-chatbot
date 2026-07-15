@@ -1,105 +1,61 @@
-# weatherBOT Edge Architecture
+# 🌤️ weatherBOT v2.0 — Edge AI Weather Intelligence Platform
 
-`weatherBOT` is a highly restricted, offline AI Weather Intelligence Platform engineered to operate entirely on isolated Edge devices. It leverages localized Machine Learning models and a local LLM to provide zero-latency, secure weather predictions without relying on real-world internet connectivity or external APIs.
+`weatherBOT` is a highly restricted, offline AI Weather Intelligence Platform engineered to operate entirely on isolated Edge devices (including Raspberry Pi). It leverages localized Machine Learning models (Redacted), PyTorch Graph Neural Networks (GNN), and a local LLM (Ollama `llama3.1:8b`) to provide zero-latency, secure weather predictions without relying on real-world internet connectivity or external APIs.
 
-## 🗺️ System Flow Diagram
+## 🏗️ System Architecture Overview
 
-```text
-                                        USER
-                                          │
-                                          │
-                    ┌─────────────────────▼─────────────────────┐
-                    │               weatherBOT                  │
-                    │         React + TypeScript Frontend       │
-                    └─────────────────────┬─────────────────────┘
-                                          │
-      ┌───────────────────────────────────┼────────────────────────────────────┐
-      │                                   │                                    │
-      ▼                                   ▼                                    ▼
-┌──────────────┐                 ┌────────────────┐                  ┌─────────────────┐
-│ Chat Module  │                 │ Raw Dataset    │                  │ Conversation    │
-│              │                 │ Module         │                  │ History         │
-└──────────────┘                 └────────────────┘                  └─────────────────┘
-                                          │
-                                          ▼
-                               ┌────────────────────┐
-                               │ Settings Dashboard │
-                               └─────────┬──────────┘
-                                         │
-                                         ▼
-                         ┌────────────────────────────────┐
-                         │        FastAPI Backend         │
-                         └────────────────┬───────────────┘
-                                          │
-               ┌──────────────────────────┼──────────────────────────┐
-               │                          │                          │
-               ▼                          ▼                          ▼
-      Conversation API             Dataset API               Prediction API
-               │                          │                          │
-               └───────────────┬──────────┴───────────────┬──────────┘
-                               ▼                          ▼
-                     MCP Service Router          Authentication (Optional)
-                               │
-──────────────────────────────────────────────────────────────────────────────
-                               │
-        ┌──────────────┬───────────────┬──────────────┬──────────────┐
-        ▼              ▼               ▼              ▼              ▼
- Conversation     CSV Service     Graph Service   GNN Service   History Service
- Service
-        │              │               │              │              │
-        ▼              ▼               ▼              ▼              ▼
- NLP Engine     Data Processing    Visualization   Prediction     Conversation DB
-                                    Engine         Engine
-──────────────────────────────────────────────────────────────────────────────
-                               │
-         ┌─────────────────────┼────────────────────────┐
-         ▼                     ▼                        ▼
-  Dataset Manager      Model Manager          Research Engine
-         │                     │                        │
-         ▼                     ▼                        ▼
- Dataset Database      Model Repository       Statistical Analysis
-──────────────────────────────────────────────────────────────────────────────
-                               │
-                               ▼
-                    Explainable AI Engine
-                               │
-                               ▼
-                    Recommendation Engine
-                               │
-                               ▼
-                   Natural Language Generator
-                               │
-                               ▼
-                          Chat Response
+```mermaid
+graph TD
+    User([User UI / React Dashboard]) -->|HTTP REST| FastAPI[FastAPI Backend]
+    FastAPI --> MCPRouter[MCP Service Router]
+    
+    subgraph Services & Engines
+        MCPRouter --> IoT[IoT Service]
+        MCPRouter --> GNN[GNN Service]
+        MCPRouter --> ML[ML Service / Redacted]
+        MCPRouter --> NLP[NLP Engine]
+        MCPRouter --> XAI[XAI Engine]
+        MCPRouter --> NLG[NLG Service]
+    end
+
+    subgraph Data Flow
+        IoT -->|Raspberry Pi Serial/MQTT| SensorData
+        GNN -->|Spatial Delta| SensorData
+        ML -->|Historical CSVs| DB[(SQLite DB)]
+    end
+
+    subgraph Edge Inference Execution
+        NLP -->|Determine Intent| Conv[Conversation Service]
+        Conv -->|Fetch Active Model & Telemetry| ContextBuilder[Tri-Mode Context Builder]
+        ContextBuilder -->|Construct Edge System Prompt| Ollama[Local Ollama - llama3.1:8b]
+        Ollama -->|Generate Natural Text + JSON Charts| FastAPI
+    end
+    
+    FastAPI -->|Response & Plotly Config| User
+    FastAPI --> MCPServer[Standard MCP SDK Server]
 ```
 
-## 🏗️ Architecture Stack
+## 🔵 Core Components
 
 ### Backend (Python/FastAPI)
-- **Framework**: FastAPI with Uvicorn.
-- **Database**: SQLite (SQLAlchemy ORM).
-- **LLM Integration**: Local `llama3.1:8b` served via Ollama on `127.0.0.1:11434`.
-- **Machine Learning Layer**:
-  - **Historical Data Mode**: Redacted models trained on local CSV datasets.
-  - **Live Station Mode**: PyTorch Graph Neural Networks (GNN) for spatial delta predictions across local IoT sensor nodes.
-- **Decision Engine**: An ultra-fast, heuristic-based intent router that intercepts user queries in Python to categorize intents (`GREETING`, `GRAPH_REQUEST`, `DATA_QUERY`, `GENERAL_CHAT`). This drastically reduces inference latency by bypassing heavy ML context injection when unnecessary.
+- **MCP Service Router**: A central dispatcher routing requests to 10 specialized microservices.
+- **MCP SDK Server**: A standard `mcp_server.py` exposing 32 tools, resources, and prompts for external MCP clients like Claude Desktop.
+- **IoT Service**: Directly integrates with Raspberry Pi via USB Serial (`pyserial`) and MQTT (`paho-mqtt`), with a built-in sinusoidal simulator fallback.
+- **Engines & Managers**:
+  - `nlp_engine.py`: Intent classification (8 types) & entity extraction.
+  - `explainable_ai_engine.py`: SHAP-style explanations and attention maps.
+  - `recommendation_engine.py`: Context-aware follow-up chips.
 
 ### Frontend (React/Vite)
-- **Framework**: React 19 + Vite.
-- **Styling**: Tailwind CSS v4 with Shadcn/UI variable mapping (`@theme` integration).
-- **Data Visualization**: Plotly.js for rendering dynamic JSON graphs generated by the LLM.
+- **Framework**: React 19 + Vite + Tailwind CSS v4.
+- **Features**: Chat window with Recommendation Chips, a collapsible Explainable AI (XAI) Panel, and a robust Settings page for managing Raspberry Pi IoT connections and system modes.
 
 ## 🚀 Tri-Mode Execution
 
 The system prompt is dynamically constructed in `conversation_service.py` based on three strict operating modes:
 1. **Historical Data Mode**: Injects metrics from a trained Redacted model (RMSE, Feature Importances, Sample Data). The LLM is strictly instructed to ignore any live sensor requests.
-2. **Live Station Mode**: Injects live telemetry from 3 simulated local IoT weather nodes (Temperature, Wind, Humidity) alongside a PyTorch GNN spatial delta prediction. The LLM must ignore historical data.
+2. **Live Station Mode**: Injects live telemetry from connected IoT weather nodes alongside a PyTorch GNN spatial delta prediction. The LLM must ignore historical data.
 3. **Prime Mode**: Injects BOTH Historical ML data and Live GNN data, requiring the LLM to synthesize both sources for a comprehensive analysis.
-
-## 🔒 Security & Constraints
-- The LLM is heavily prompted to maintain an isolated Edge persona.
-- If prompted about real-world cities (e.g., New York, London), it will explicitly refuse, stating it only has access to local station data.
-- It is physically isolated; there are no outgoing internet requests other than the local loopback to Ollama.
 
 ## 📦 Getting Started
 
@@ -114,7 +70,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 *The backend API will run on `http://localhost:8000`.*
 
@@ -127,7 +83,16 @@ npm run dev
 ```
 *The Tri-Mode dashboard will be available at `http://localhost:5173`.*
 
-### 4. Authentication
+### 4. Optional: Run the MCP SDK Server
+Open a **third** terminal window:
+```bash
+cd backend
+.\.venv\Scripts\activate
+python mcp_server.py
+```
+*Exposes weatherBOT tools to any MCP client.*
+
+### 5. Authentication
 - **Username**: `admin`
 - **Password**: `admin`
 

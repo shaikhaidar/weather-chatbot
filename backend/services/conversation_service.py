@@ -68,7 +68,22 @@ class ConversationService:
             if mode in ["historical data mode", "prime"]:
                 active_model = db.query(models.ModelVersion).filter(models.ModelVersion.is_active == 1).first()
                 if active_model:
-                    ml_context = f"\n[HISTORICAL CSV MODEL INFO]\nRMSE: {active_model.rmse}\nFeature Importances: {json.dumps(active_model.feature_importances)}\nSample Actual vs Predicted Data: {json.dumps(active_model.plot_data)}\n"
+                    parent_ds = db.query(models.Dataset).filter(models.Dataset.id == active_model.dataset_id).first()
+                    ds_info = f"Filename: {parent_ds.filename} | Time Span: {parent_ds.time_span} | Total Rows: {parent_ds.total_rows} | Sensors: {', '.join(parent_ds.detected_sensors or [])}" if parent_ds else "N/A"
+                    ml_context = (
+                        f"\n[HISTORICAL CSV MODEL INFO]\n"
+                        f"Active Model Version: {active_model.version}\n"
+                        f"Dataset Context: {ds_info}\n"
+                        f"Model Metrics: RMSE={active_model.rmse:.4f}, R2={active_model.accuracy:.4f}, Training Time={active_model.training_time:.2f}s\n"
+                        f"Feature Importances: {json.dumps(active_model.feature_importances)}\n"
+                        f"Sample Actual vs Predicted Data Points: {json.dumps(active_model.plot_data)}\n"
+                    )
+                else:
+                    latest_ds = db.query(models.Dataset).order_by(models.Dataset.id.desc()).first()
+                    if latest_ds:
+                        ml_context = f"\n[HISTORICAL CSV MODEL INFO]\nDataset uploaded: '{latest_ds.filename}' ({latest_ds.total_rows} rows, Time Span: {latest_ds.time_span}). Status: {latest_ds.status}.\n"
+                    else:
+                        ml_context = "\n[HISTORICAL CSV MODEL INFO]\nNo historical datasets have been uploaded yet.\n"
 
             # Mode 2: Live Station Mode (Only IoT/GNN)
             # Mode 3: Prime Mode (Both)

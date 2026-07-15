@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UploadCloud, FileSpreadsheet, AlertCircle } from 'lucide-react';
-import { uploadDataset, getDatasets } from '../api';
+import { UploadCloud, FileSpreadsheet, AlertCircle, Trash2 } from 'lucide-react';
+import { uploadDataset, getDatasets, deleteDataset } from '../api';
 
 const RawDataset = () => {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -39,6 +39,16 @@ const RawDataset = () => {
       setError('Failed to upload dataset. Ensure backend is running.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteDataset = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this dataset?')) return;
+    try {
+      await deleteDataset(id);
+      await fetchDatasets();
+    } catch (err) {
+      setError('Failed to delete dataset.');
     }
   };
 
@@ -86,6 +96,8 @@ const RawDataset = () => {
                     <th className="p-4 border-b font-medium">Time Span</th>
                     <th className="p-4 border-b font-medium">Sensors Detected</th>
                     <th className="p-4 border-b font-medium">Quality Score</th>
+                    <th className="p-4 border-b font-medium">Training Status</th>
+                    <th className="p-4 border-b font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -105,6 +117,32 @@ const RawDataset = () => {
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${ds.data_quality_score > 80 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                            {ds.data_quality_score}/100
                         </span>
+                      </td>
+                      <td className="p-4 text-sm">
+                        <span 
+                          title={ds.error_message || ''}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            ds.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
+                            ds.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                            'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                           {ds.status || 'COMPLETED'}
+                        </span>
+                        {ds.error_message && (
+                          <p className="text-[10px] text-red-500 mt-1 max-w-[200px] truncate" title={ds.error_message}>
+                            {ds.error_message}
+                          </p>
+                        )}
+                      </td>
+                      <td className="p-4 text-sm text-right">
+                        <button
+                          onClick={() => handleDeleteDataset(ds.id)}
+                          className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
+                          title="Delete Dataset"
+                        >
+                          <Trash2 className="w-4 h-4 inline" />
+                        </button>
                       </td>
                     </tr>
                   ))}

@@ -15,6 +15,8 @@ class Dataset(Base):
     duplicate_values = Column(Integer)
     detected_sensors = Column(JSON) # Store list of detected sensors
     data_quality_score = Column(Float)
+    status = Column(String, default="PROCESSING") # PROCESSING, COMPLETED, FAILED
+    error_message = Column(Text, nullable=True)
     upload_date = Column(DateTime, default=datetime.datetime.utcnow)
 
 class ConversationSession(Base):
