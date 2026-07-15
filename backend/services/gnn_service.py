@@ -68,6 +68,41 @@ class GNNService:
             return {"status": "error", "message": str(e)}
 
     @staticmethod
+    def build_nodes_from_dataframe(df: Any, sample_nodes: int = 3) -> List[List[float]]:
+        """Extract representative node feature matrices directly from uploaded CSV DataFrame."""
+        if not hasattr(df, "columns"):
+            return [[24.2, 12.0, 60.0], [23.9, 14.0, 62.0], [24.5, 10.0, 58.0]]
+            
+        # Match features dynamically using aliases
+        from services.dataset_service import DatasetService
+        aliases = DatasetService.SENSOR_ALIASES
+        
+        def find_col(keys):
+            for col in df.columns:
+                if any(k in col.lower() for k in keys):
+                    return col
+            return None
+
+        temp_col = find_col(aliases.get("temperature", []))
+        wind_col = find_col(aliases.get("wind_speed", []))
+        hum_col = find_col(aliases.get("humidity", []))
+
+        # Sample rows across the dataset duration
+        indices = [int(i) for i in [0, len(df)//2, len(df)-1]] if len(df) >= 3 else list(range(len(df)))
+        
+        nodes = []
+        for idx in indices:
+            t = float(df[temp_col].iloc[idx]) if temp_col and pd.notnull(df[temp_col].iloc[idx]) else 24.0
+            w = float(df[wind_col].iloc[idx]) if wind_col and pd.notnull(df[wind_col].iloc[idx]) else 10.0
+            h = float(df[hum_col].iloc[idx]) if hum_col and pd.notnull(df[hum_col].iloc[idx]) else 60.0
+            nodes.append([round(t, 2), round(w, 2), round(h, 2)])
+            
+        while len(nodes) < sample_nodes:
+            nodes.append([24.0, 10.0, 60.0])
+            
+        return nodes[:sample_nodes]
+
+    @staticmethod
     def build_nodes_from_iot(readings: List[Dict[str, Any]]) -> List[List[float]]:
         """Convert IoTService multi-node readings into GNN node feature matrix."""
         return [

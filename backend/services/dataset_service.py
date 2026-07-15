@@ -67,11 +67,11 @@ class DatasetService:
                 
         if datetime_cols:
             try:
-                df[datetime_cols[0]] = pd.to_datetime(df[datetime_cols[0]], format='mixed', errors='coerce')
+                df[datetime_cols[0]] = pd.to_datetime(df[datetime_cols[0]], format='mixed', dayfirst=True, errors='coerce')
                 valid_dates = df[datetime_cols[0]].dropna()
                 if not valid_dates.empty:
-                    min_time = valid_dates.min()
-                    max_time = valid_dates.max()
+                    min_time = valid_dates.min().strftime('%d/%m/%Y')
+                    max_time = valid_dates.max().strftime('%d/%m/%Y')
                     time_span = f"{min_time} to {max_time}"
                     
                     # Estimate frequency
