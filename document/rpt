@@ -26,20 +26,23 @@
 \begin{titlepage}
     \centering
     \vspace*{1cm}
-    
-    % Optional cover image/logo from page 1
-    \includegraphics[width=0.4\textwidth]{images/page_1_img_1_X4.png}\\[1.5cm]
-    
-    {\scshape\LARGE Summer Research Fellowship Programme (SRFP) \par}
+
+     {\huge\bfseries 8 - WEEK REPORT\par}
     \vspace{1cm}
-    {\scshape\Large Progress Report -- July 2026\par}
+    {\scshape\LARGE  Weather Station Project \par}
+    \vspace{1cm}
+    {\scshape\Large AIoT Multi-Modal Sensing Overview\par}
     \vspace{1.5cm}
     
-    {\huge\bfseries LAST 4-WEEK REPORT\par}
+    % Optional cover image/logo from page 1
+    \includegraphics[width=0.4\textwidth]{images/page_1_img_1_X4.png}\\[1cm]
+    
+    
+    
+    
+    {\large\bfseries Summer Research Fellowship Programme (SRFP)  \par}
     \vspace{0.5cm}
-    {\large\bfseries AIoT Multi-Modal Sensing Overview\par}
-    \vspace{0.5cm}
-    {\large Weather Station Project\par}
+    {\large  Progress Report -- July 2026\par}
     \vspace{2cm}
     
     \begin{minipage}[t]{0.45\textwidth}
@@ -56,7 +59,8 @@
         \begin{flushright} \large
             \textbf{Under the Supervision of:}\\
             Dr. T V PRABHAKAR\\
-            IISc-DESE, Bangalore
+            IISc-DESE,\\
+            Bangalore
         \end{flushright}
     \end{minipage}
     
@@ -72,6 +76,7 @@
 % --- Abstract Section ---
 \begin{abstract}
 This work presents WeatherGPT, an AI-assisted weather monitoring and forecasting framework that integrates Artificial Intelligence (AI), Internet of Things (IoT), edge computing, and conversational intelligence into a unified environmental monitoring platform. The system employs a Raspberry Pi 4 integrated with multiple environmental sensors to continuously monitor temperature, humidity, atmospheric pressure, particulate matter, rainfall, wind speed, and wind direction. Sensor observations are processed at the edge, transmitted using the MQTT communication protocol, archived for historical analysis, and visualized through an interactive dashboard. A custom Natural Language Processing (NLP) pipeline enables users to retrieve historical weather information, perform statistical analysis, compare weather conditions across multiple dates, and interact with the system using natural language.
+
 
 Short-term weather forecasting is performed using a stacked Long Short-Term Memory (LSTM) neural network implemented in PyTorch and trained on historical weather observations to generate multivariate forecasts for up to 30 days. The framework further integrates locally hosted Large Language Models (LLMs), REST APIs, command-line and web-based interfaces, and Model Context Protocol (MCP) support to provide reliable offline operation and seamless interoperability with external AI applications. Building upon this foundation, the research is being extended towards the development of an advanced WeatherBot based on Graph Neural Networks (GNNs) to model spatial and temporal relationships among multiple sensing nodes, enabling scalable multi-node weather prediction and intelligent environmental analysis for next-generation AIoT weather monitoring systems.
 \end{abstract}
@@ -107,12 +112,14 @@ Based on this understanding, the scope of the project was extended by exploring 
 \section{About the Weather Station}
 The proposed AIoT Multi-Modal Weather Station is designed as a comprehensive environmental monitoring platform capable of continuously sensing, processing, storing, and visualizing multiple atmospheric parameters in real time. Unlike conventional weather stations that primarily focus on a limited set of meteorological variables, this system integrates multiple sensing modalities to provide a holistic understanding of environmental conditions. The architecture combines heterogeneous sensors, edge computing, lightweight communication protocols, local storage, and visualization techniques to create a reliable and scalable monitoring solution.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{images/page_6_img_1_X5.jpg}
-    \caption{Model of the Weather Station}
-    \label{fig:model_weather_station}
-\end{figure}
+
+\begin{figure}
+        \centering
+        \includegraphics[width=1\linewidth]{images/WhatsApp Image 2026-07-16 at 10.41.59 AM.jpeg}
+        \caption{Model of the Weather Station}
+        \label{fig:model_weather_station}
+    \end{figure}
+
 
 \subsection{Project Overview}
 Environmental monitoring has become increasingly important due to rapid climate change, urbanization, and growing concerns regarding air quality and weather-related hazards. Accurate measurement of atmospheric parameters enables researchers and engineers to analyze weather patterns, monitor pollution levels, and develop intelligent environmental monitoring systems.
@@ -539,7 +546,7 @@ The integrated features were verified by running the complete WeatherBOT applica
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{images/bot_accuracy_graph.png}
+    \includegraphics[width=0.9\textwidth]{bot_accuracy_graph.png}
     \caption{Model Accuracy Graph: Comparison of actual versus predicted temperature values generated by the advanced GNN prediction engine, demonstrating high forecasting reliability.}
     \label{fig:new_bot_accuracy}
 \end{figure}
