@@ -5,6 +5,7 @@ import Settings from './components/Settings';
 import ChatWindow from './components/ChatWindow';
 import History from './components/History';
 import Login from './components/Login';
+import OfflineBanner from './components/OfflineBanner';
 import { setAuthToken } from './api';
 
 function App() {
@@ -12,9 +13,22 @@ function App() {
   const [currentView, setCurrentView] = useState('Chat');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [systemMode, setSystemMode] = useState('Prime');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   // Hardware connectivity status for physical IoT stations
   const [isStationConnected, setIsStationConnected] = useState(false);
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     // Check local hardware IoT status via backend endpoint if available
@@ -50,6 +64,9 @@ function App() {
 
   return (
     <div className="flex h-screen w-full bg-gray-50 text-gray-900 font-sans overflow-hidden">
+      {/* Offline Banner */}
+      <OfflineBanner isOnline={isOnline} />
+
       {/* Left Sidebar */}
       <Sidebar currentView={currentView} setCurrentView={handleSidebarClick} />
 
@@ -62,6 +79,12 @@ function App() {
             <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">{systemMode} Mode</span>
           </div>
           <div className="flex items-center gap-2 text-sm font-medium">
+            {/* Online/offline indicator */}
+            <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-400' : 'bg-yellow-500'}`}></span>
+            <span className={`text-xs mr-3 ${isOnline ? 'text-green-600' : 'text-yellow-600'}`}>
+              {isOnline ? 'Online' : 'Offline (Cached)'}
+            </span>
+            {/* Hardware indicator */}
             <span className={`w-2.5 h-2.5 rounded-full ${isStationConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
             {isStationConnected ? (
               <span className="text-green-600">Hardware Connected (Serial/MQTT)</span>
