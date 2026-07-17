@@ -11,6 +11,13 @@ import models
 router = APIRouter()
 
 
+@router.get("/iot")
+def get_iot_status() -> Dict[str, Any]:
+    """Get IoT status for frontend connectivity check."""
+    from services.iot_service import IoTService
+    return IoTService.get_status()
+
+
 @router.get("/live")
 def get_live_prediction(n_nodes: int = Query(default=3, ge=1, le=10)) -> Dict[str, Any]:
     """Get IoT live reading + GNN spatial prediction for n weather station nodes."""

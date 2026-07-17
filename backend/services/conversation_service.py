@@ -45,7 +45,7 @@ class ConversationService:
         """
         Calls local Llama 3.1 8b via Ollama API.
         Strictly enforces that the bot only knows about local weather station data and ML predictions.
-        Now respects Tri-Mode architecture (Historical, Live Station, Prime).
+        Uses GNN and BiLSTM models for accurate environmental modeling.
         """
         # Save user message
         ConversationService.add_message(db, session_id, role="user", content=user_message)
@@ -61,8 +61,8 @@ class ConversationService:
         gnn_result = ""
         ml_context = ""
         
-        # If it's a simple greeting, we skip loading heavy ML data to save Edge inference tokens
-        if intent != IntentType.GREETING:
+        # Skip loading heavy ML data for simple greetings and general queries to save tokens and decrease latency
+        if intent not in [IntentType.GREETING, IntentType.GENERAL_CHAT]:
             # Fetch active model and parent dataset
             active_model = db.query(models.ModelVersion).filter(models.ModelVersion.is_active == 1).first()
             parent_ds = db.query(models.Dataset).filter(models.Dataset.id == active_model.dataset_id).first() if active_model else db.query(models.Dataset).order_by(models.Dataset.id.desc()).first()
@@ -167,40 +167,84 @@ class ConversationService:
             
         # Prepare context from history
         history = ConversationService.get_session_history(db, session_id)
+        
+        hw_spec = (
+            "\n[AIoT MULTI-MODAL WEATHER STATION SPECIFICATION]\n"
+            "Hardware Core: Raspberry Pi 4 (Brain of the system, coordinates NTP timestamps, reads/validates sensors, publishes over MQTT).\n"
+            "Sensors & Interfaces:\n"
+            "- BME280: Temperature (°C), Relative Humidity (%), Atmospheric Pressure (hPa). Interface: I2C.\n"
+            "- SPS30: Air Quality PM1.0, PM2.5, PM4.0, PM10 (µg/m³). Interface: UART.\n"
+            "- BH1750: Ambient Light Intensity / Lux. Interface: I2C.\n"
+            "- YL-83: Rain Presence (0 = No Rain, 1 = Rain). Interface: GPIO.\n"
+            "- Tipping Bucket Rain Gauge: Rainfall Amount (mm). Interface: GPIO Interrupt (0.2794 mm/tip).\n"
+            "- Anemometer: Wind Speed (m/s). Interface: GPIO Interrupt cup-rotation frequency.\n"
+            "- Wind Vane: Wind Direction (Cardinal or degrees). Interface: ADC.\n"
+            "Communication & Storage: MQTT (Mosquitto Broker) -> Stores timeseries data in InfluxDB and visualizes it in real-time using Grafana dashboards.\n"
+        )
             
-        prompt = f"You are weatherBOT, a highly restricted AI Weather Intelligence Platform operating on an isolated Edge Computer in '{system_mode}'.\n"
-        if intent == IntentType.GREETING:
-            prompt += "CRITICAL DIRECTIVE: The user is just greeting you. Respond politely and concisely in one sentence. Do not mention data or graphs.\n"
+        hw_keywords = ["sensor", "hardware", "bme", "sps", "bh", "yl", "tipping", "anemometer", "vane", "pi", "mqtt", "influx", "grafana", "serial", "uart", "i2c", "spec"]
+        include_hw = any(kw in user_message.lower() for kw in hw_keywords)
+        
+        system_prompt = (
+            f"# SYSTEM ROLE\n"
+            f"You are weatherBOT, a professional and highly articulate AI Weather Intelligence Assistant operating on an isolated Edge Computer in '{system_mode}'.\n"
+            f"Speak with authoritative, scientific clarity, like a meteorologist or advanced climate data scientist. Ensure your tone is professional, precise, objective, and polite. Avoid casual slang or conversational filler.\n\n"
+            f"# ENVIRONMENT & HARDWARE CONFIGURATION\n"
+        )
+        if include_hw:
+            system_prompt += hw_spec
         else:
-            prompt += f"{ml_context}{live_context}{gnn_result}\n"
+            system_prompt += "Hardware Platform: Raspberry Pi 4 edge node connecting local BME280, SPS30, BH1750 and custom wind/rain hardware sensors. Storage is backed by InfluxDB and Grafana.\n"
         
+        system_prompt += "\n# CONTEXT & REAL-TIME DATA\n"
+        if intent == IntentType.GREETING:
+            system_prompt += "CRITICAL DIRECTIVE: The user is greeting you. Respond professionally and concisely in one sentence, welcoming them to the Weather Intelligence Platform. Do not mention data or graphs.\n"
+        elif intent == IntentType.GENERAL_CHAT:
+            system_prompt += "CRITICAL DIRECTIVE: This is a general query. Respond professionally. Do not include specific data tables or graphs unless they explicitly ask for weather information.\n"
+        else:
+            system_prompt += f"{ml_context}{live_context}{gnn_result}\n"
+        
+        system_prompt += "\n# CRITICAL SYSTEM DIRECTIVES\n"
         if mode == "historical data mode":
-            prompt += "CRITICAL DIRECTIVE: You are in Historical Data Mode. You MUST ignore all live station data and ONLY answer based on the Historical CSV Model Info. Refuse any requests for live predictions.\n\n"
+            system_prompt += "- You are in Historical Data Mode. You MUST ignore all live station data and ONLY answer based on the Historical CSV Model Info. Refuse any requests for live predictions.\n"
         elif mode == "live station mode":
-            prompt += "CRITICAL DIRECTIVE: You are in Live Station Mode. You MUST ignore all historical CSV data and ONLY answer based on the Live Edge Station Data and GNN Spatial Prediction. Refuse any requests for historical CSV analysis.\n\n"
+            system_prompt += "- You are in Live Station Mode. You MUST ignore all historical CSV data and ONLY answer based on the Live Edge Station Data and GNN Spatial Prediction. Refuse any requests for historical CSV analysis.\n"
         else: # Prime
-            prompt += "CRITICAL DIRECTIVE: You are in Prime Mode. You have access to BOTH Historical CSV data and Live Edge Station Data (GNN). Synthesize this information gracefully.\n\n"
+            system_prompt += "- You are in Prime Mode. You have access to BOTH Historical CSV data and Live Edge Station Data (GNN). Synthesize this information gracefully.\n"
             
-        prompt += "CRITICAL DIRECTIVE: You are strictly isolated from the real-world internet. You ONLY have knowledge of the provided context. If the user asks about the weather in cities like 'New York', 'London', or anywhere else in the real world, you MUST refuse and state that you are an isolated Edge AI and only monitor local station data. NEVER hallucinate real-world internet data.\n\n"
-        prompt += "If the user asks for a graph or chart, analyze the provided Model Info. Then output a valid JSON block enclosed exactly in ```json ... ``` tags containing a Plotly.js configuration with a `data` array and a `layout` object representing the data.\n\n"
+        system_prompt += "- You are strictly isolated from the real-world internet. You ONLY have knowledge of the provided context. If the user asks about the weather in cities outside your station network (like 'New York', 'London', etc.), you MUST state that you are an isolated Edge AI and only monitor local station data. NEVER hallucinate real-world internet data.\n"
+        system_prompt += "- If an EXACT HISTORICAL CSV DATE RECORD or a PREDICTED MULTI-FEATURE FORECAST is provided in the context above, you MUST answer the user's question using that specific data. Do NOT claim you lack data for that date.\n"
+        system_prompt += "- If the user asks for a graph or chart, analyze the provided Model Info. Then output a valid JSON block enclosed exactly in ```json ... ``` tags containing a Plotly.js configuration with a `data` array and a `layout` object representing the data. Ensure the graph conforms to professional design aesthetics (curated colors, clear titles).\n\n"
         
-        for msg in history[-10:]: # last 10 msgs context
-            prompt += f"{msg.role}: {msg.content}\n"
+        # Build message history for /api/chat
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        for msg in history[-6:]: # last 6 msgs context (3 turns)
+            messages.append({"role": msg.role, "content": msg.content})
             
-        bot_response = "I encountered an error connecting to my local brain (Llama 3.1)."
+        bot_response = "I encountered an error connecting to my local brain (Llama 3.2)."
+        inference_time = 0.0
         try:
-            logger.info("Sending prompt to Ollama (Llama 3.1) for inference...")
+            logger.info("Sending chat request to Ollama (Llama 3.2)...")
             start_time = time.time()
-            # Assuming Ollama is running on default port 11434
-            res = requests.post("http://127.0.0.1:11434/api/generate", json={
-                "model": "llama3.1:8b",
-                "prompt": prompt,
-                "stream": False
+            res = requests.post("http://127.0.0.1:11434/api/chat", json={
+                "model": "llama3.2:3b",
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "num_predict": 300,
+                    "temperature": 0.1,
+                    "num_ctx": 2048,
+                    "top_k": 20,
+                    "top_p": 0.4,
+                    "num_thread": 4
+                }
             }, timeout=90)
             inference_time = time.time() - start_time
             if res.status_code == 200:
-                bot_response = res.json().get("response", bot_response)
-                logger.info(f"Ollama inference completed successfully in {inference_time:.2f} seconds.")
+                bot_response = res.json().get("message", {}).get("content", bot_response)
+                logger.info(f"Ollama chat completed successfully in {inference_time:.2f} seconds.")
             else:
                 logger.error(f"Ollama API returned status code {res.status_code}")
         except Exception as e:
@@ -234,5 +278,6 @@ class ConversationService:
         return {
             "content": saved_msg.content,
             "graphs": saved_msg.graphs,
-            "mode": mode
+            "mode": mode,
+            "latency": round(inference_time, 2)
         }

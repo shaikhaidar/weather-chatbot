@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, ChevronDown, ChevronUp, Zap, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, ChevronDown, ChevronUp, Zap, MessageSquare, PlusCircle } from 'lucide-react';
 import Plot from 'react-plotly.js';
 import { createSession, sendMessage, getMessages, getSessionXAI } from '../api';
 
@@ -18,10 +18,11 @@ interface Message {
   mode?: string;
   recommendations?: string[];
   intent?: string;
+  latency?: number;
   xai?: { explanations: XAIExplanation[]; attention_map: any };
 }
 
-const ChatWindow = ({ sessionIdProp, systemMode }: { sessionIdProp: string | null; systemMode: string }) => {
+const ChatWindow = ({ sessionIdProp, systemMode, onSessionInit }: { sessionIdProp: string | null; systemMode: string; onSessionInit?: (id: string) => void }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,6 +57,9 @@ const ChatWindow = ({ sessionIdProp, systemMode }: { sessionIdProp: string | nul
     try {
       const session = await createSession('New Chat');
       setSessionId(session.id);
+      if (onSessionInit) {
+        onSessionInit(session.id);
+      }
       setMessages([]);
     } catch (err) {
       console.error(err);
@@ -82,6 +86,7 @@ const ChatWindow = ({ sessionIdProp, systemMode }: { sessionIdProp: string | nul
           mode: response.mode,
           recommendations: response.recommendations || [],
           intent: response.intent,
+          latency: response.latency,
         },
       ]);
     } catch (err) {
@@ -151,11 +156,18 @@ const ChatWindow = ({ sessionIdProp, systemMode }: { sessionIdProp: string | nul
                     </div>
                   )}
 
-                  {msg.mode && (
-                    <span className="inline-block mt-2 text-[10px] uppercase tracking-wider font-semibold opacity-50">
-                      Mode: {msg.mode}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-3 mt-2">
+                    {msg.mode && (
+                      <span className="text-[10px] uppercase tracking-wider font-semibold opacity-50">
+                        Mode: {msg.mode}
+                      </span>
+                    )}
+                    {msg.latency !== undefined && (
+                      <span className="text-[10px] uppercase tracking-wider font-semibold opacity-60 flex items-center gap-1">
+                        ⚡ {msg.latency}s
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* XAI Panel — only for assistant messages with prediction intent */}
@@ -252,8 +264,21 @@ const ChatWindow = ({ sessionIdProp, systemMode }: { sessionIdProp: string | nul
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t">
-        <div className="relative flex items-center max-w-4xl mx-auto">
+      <div className="p-4 bg-white border-t flex flex-col gap-3">
+        <div className="flex justify-between items-center px-4">
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Active Session
+          </span>
+          <button 
+            onClick={initSession}
+            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-semibold px-3 py-1.5 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            New Chat
+          </button>
+        </div>
+        <div className="relative flex items-center w-full">
           <input
             id="chat-input"
             type="text"

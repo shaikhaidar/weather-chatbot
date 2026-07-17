@@ -31,12 +31,19 @@ except ImportError:
 
 # ── In-memory sensor state ────────────────────────────────────────────────────
 _sensor_state: Dict[str, Any] = {
-    "temperature": 24.0,
-    "humidity": 60.0,
-    "pressure": 1013.25,
-    "wind_speed": 5.0,
-    "rainfall": 0.0,
-    "light_intensity": 800.0,
+    "temperature": 24.0,         # BME280 (°C)
+    "humidity": 60.0,            # BME280 (%)
+    "pressure": 1013.25,         # BME280 (hPa)
+    "pm1_0": 5.0,                # SPS30 (µg/m³)
+    "pm2_5": 12.0,               # SPS30 (µg/m³)
+    "pm4_0": 18.0,               # SPS30 (µg/m³)
+    "pm10": 25.0,                # SPS30 (µg/m³)
+    "rain_presence": 0,          # YL-83 (0 = No Rain, 1 = Rain)
+    "rainfall": 0.0,             # Tipping Bucket (mm)
+    "wind_speed": 5.0,           # Anemometer (m/s)
+    "wind_direction": "N",       # Wind Vane (Cardinal direction)
+    "light_intensity": 800.0,    # BH1750 (Lux)
+    "lux": 800.0,                # BH1750 (Lux - Alias)
     "timestamp": datetime.utcnow().isoformat(),
     "source": "simulator",      # "serial" | "mqtt" | "simulator"
     "connected": False,
@@ -73,6 +80,22 @@ class WeatherSimulator:
         wind_speed = round(max(0, abs(5.0 + 3.0 * math.sin(t / 30.0) + random.gauss(0, 0.5 * n))), 2)
         rainfall = round(max(0.0, random.gauss(0, 0.1 * n) if random.random() > 0.85 else 0.0), 3)
         light = round(max(0, 750.0 + 250.0 * math.sin(t / 50.0) + random.gauss(0, 20.0 * n)), 1)
+        
+        # New sensor metrics from the RPi project specs
+        # Air Quality (SPS30) PM concentration
+        base_pm25 = max(1.0, 12.0 + 5.0 * math.sin(t / 80.0) + random.gauss(0, 2.0 * n))
+        pm2_5 = round(base_pm25, 2)
+        pm1_0 = round(base_pm25 * 0.6 + random.uniform(0, 0.5), 2)
+        pm4_0 = round(base_pm25 * 1.4 + random.uniform(0, 1.0), 2)
+        pm10 = round(base_pm25 * 2.0 + random.uniform(0, 2.0), 2)
+        
+        # Rain Presence (YL-83 qualitative, 0 = No Rain, 1 = Rain)
+        rain_presence = 1 if rainfall > 0 else 0
+        
+        # Wind Direction (Wind Vane Cardinal)
+        directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        dir_idx = int((t // 5) % 8)
+        wind_direction = directions[dir_idx]
 
         return {
             "temperature": temp,
@@ -81,6 +104,13 @@ class WeatherSimulator:
             "wind_speed": wind_speed,
             "rainfall": rainfall,
             "light_intensity": light,
+            "lux": light,
+            "pm1_0": pm1_0,
+            "pm2_5": pm2_5,
+            "pm4_0": pm4_0,
+            "pm10": pm10,
+            "rain_presence": rain_presence,
+            "wind_direction": wind_direction,
             "timestamp": datetime.utcnow().isoformat(),
             "source": "simulator",
             "connected": False,
@@ -198,13 +228,35 @@ class IoTService:
     """High-level service used by routers and MCP router."""
 
     @staticmethod
+    def is_hardware_connected() -> bool:
+        with _lock:
+            return _sensor_state["connected"]
+
+    @staticmethod
     def get_reading() -> Dict[str, Any]:
         """Return the latest sensor reading (real or simulated)."""
         with _lock:
             if _sensor_state["connected"]:
                 return dict(_sensor_state)
-        # Fallback: generate a fresh simulated value
-        reading = WeatherSimulator.next_reading()
+        # Fallback: if disconnected, do not simulate fake data.
+        reading = {
+            "temperature": 0.0,
+            "humidity": 0.0,
+            "pressure": 0.0,
+            "wind_speed": 0.0,
+            "rainfall": 0.0,
+            "light_intensity": 0.0,
+            "lux": 0.0,
+            "pm1_0": 0.0,
+            "pm2_5": 0.0,
+            "pm4_0": 0.0,
+            "pm10": 0.0,
+            "rain_presence": 0,
+            "wind_direction": "N/A",
+            "timestamp": datetime.utcnow().isoformat(),
+            "source": "disconnected",
+            "connected": False,
+        }
         with _lock:
             _sensor_state.update(reading)
         return reading
@@ -219,7 +271,10 @@ class IoTService:
                 "node_id": i,
                 "temperature": round(base["temperature"] + random.gauss(0, 0.5), 2),
                 "humidity": round(base["humidity"] + random.gauss(0, 1.0), 2),
+                "pressure": round(base["pressure"] + random.gauss(0, 0.2), 2),
                 "wind_speed": round(max(0, base["wind_speed"] + random.gauss(0, 0.3)), 2),
+                "pm2_5": round(max(0.1, base["pm2_5"] + random.gauss(0, 1.0)), 2),
+                "light_intensity": round(max(0, base["light_intensity"] + random.gauss(0, 10.0)), 1),
             }
             nodes.append(node)
         return nodes

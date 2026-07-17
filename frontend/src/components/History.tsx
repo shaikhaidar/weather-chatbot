@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getSessions } from '../api';
-import { MessageSquare, Clock } from 'lucide-react';
+import { getSessions, deleteSession, deleteAllSessions } from '../api';
+import { MessageSquare, Clock, Trash2 } from 'lucide-react';
 
 const History = ({ onSelectSession }: { onSelectSession: (id: string) => void }) => {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -21,6 +21,17 @@ const History = ({ onSelectSession }: { onSelectSession: (id: string) => void })
     }
   };
 
+  const handleDeleteSession = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await deleteSession(id);
+    fetchSessions();
+  };
+
+  const handleDeleteAll = async () => {
+    await deleteAllSessions();
+    fetchSessions();
+  };
+
   if (loading) {
     return <div className="p-12 text-center text-gray-500">Loading history...</div>;
   }
@@ -33,7 +44,18 @@ const History = ({ onSelectSession }: { onSelectSession: (id: string) => void })
             <Clock className="w-5 h-5 text-gray-500" />
             Conversation History
           </h3>
-          <span className="text-sm text-gray-500">{sessions.length} Sessions</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">{sessions.length} Sessions</span>
+            {sessions.length > 0 && (
+              <button 
+                onClick={handleDeleteAll}
+                className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete All
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="divide-y">
@@ -45,16 +67,25 @@ const History = ({ onSelectSession }: { onSelectSession: (id: string) => void })
             sessions.map((session) => (
               <div 
                 key={session.id} 
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-4 group"
+                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors flex justify-between items-center group"
                 onClick={() => onSelectSession(session.id)}
               >
-                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors">
-                  <MessageSquare className="w-5 h-5" />
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">{session.title}</h4>
+                    <p className="text-sm text-gray-500">{new Date(session.created_at).toLocaleString()}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-medium text-gray-900">{session.title}</h4>
-                  <p className="text-sm text-gray-500">{new Date(session.created_at).toLocaleString()}</p>
-                </div>
+                <button
+                  onClick={(e) => handleDeleteSession(session.id, e)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                  title="Delete Conversation"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
               </div>
             ))
           )}
