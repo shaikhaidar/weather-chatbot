@@ -6,7 +6,6 @@ pandas
 scikit-learn
 numpy
 python-multipart
-redacted
 requests
 python-jose[cryptography]
 passlib[bcrypt]
@@ -14,3 +13,5 @@ mcp
 pyserial
 paho-mqtt
 scipy
+torch --index-url https://download.pytorch.org/whl/cpu
+torch-geometric

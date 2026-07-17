@@ -1,14 +1,10 @@
 from typing import Any, Dict
 import pandas as pd
 from sklearn.model_selection import train_test_split
-try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-    import torch.optim as optim
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
 from functools import lru_cache
 import hashlib
@@ -27,35 +23,31 @@ except ImportError:
     TORCH_GEOMETRIC_AVAILABLE = False
 
 
-if TORCH_AVAILABLE:
-    class TabularGAT(nn.Module):
-        """
-        Graph Attention Network for Tabular Data.
-        Treats each row as a node. Edges are drawn using KNN based on feature similarity.
-        """
-        def __init__(self, in_channels, out_channels=1, hidden_channels=32):
-            super().__init__()
-            if TORCH_GEOMETRIC_AVAILABLE:
-                self.conv1 = GATConv(in_channels, hidden_channels, heads=4, concat=False)
-                self.conv2 = GATConv(hidden_channels, out_channels, heads=1, concat=False)
-            else:
-                # Fallback MLP if PyG fails
-                self.fc1 = nn.Linear(in_channels, hidden_channels)
-                self.fc2 = nn.Linear(hidden_channels, out_channels)
+class TabularGAT(nn.Module):
+    """
+    Graph Attention Network for Tabular Data.
+    Treats each row as a node. Edges are drawn using KNN based on feature similarity.
+    """
+    def __init__(self, in_channels, out_channels=1, hidden_channels=32):
+        super().__init__()
+        if TORCH_GEOMETRIC_AVAILABLE:
+            self.conv1 = GATConv(in_channels, hidden_channels, heads=4, concat=False)
+            self.conv2 = GATConv(hidden_channels, out_channels, heads=1, concat=False)
+        else:
+            # Fallback MLP when PyG is unavailable (still uses PyTorch)
+            self.fc1 = nn.Linear(in_channels, hidden_channels)
+            self.fc2 = nn.Linear(hidden_channels, out_channels)
 
-        def forward(self, x, edge_index=None):
-            if TORCH_GEOMETRIC_AVAILABLE and edge_index is not None:
-                x = self.conv1(x, edge_index)
-                x = F.elu(x)
-                x = F.dropout(x, p=0.2, training=self.training)
-                x = self.conv2(x, edge_index)
-                return x
-            else:
-                x = F.elu(self.fc1(x))
-                return self.fc2(x)
-else:
-    class TabularGAT:
-        pass
+    def forward(self, x, edge_index=None):
+        if TORCH_GEOMETRIC_AVAILABLE and edge_index is not None:
+            x = self.conv1(x, edge_index)
+            x = F.elu(x)
+            x = F.dropout(x, p=0.2, training=self.training)
+            x = self.conv2(x, edge_index)
+            return x
+        else:
+            x = F.elu(self.fc1(x))
+            return self.fc2(x)
 
 
 class MLService:
@@ -104,74 +96,53 @@ class MLService:
         
         if len(X) < 10:
             return {"error": "Dataset too small for training."}
-            
-        if not TORCH_AVAILABLE:
-            import redacted as xgb
-            num_nodes = len(X)
-            indices = np.random.permutation(num_nodes)
-            split = int(0.8 * num_nodes)
-            train_idx = indices[:split]
-            test_idx = indices[split:]
-            
-            model = xgb.RedactedRegressor(n_estimators=100, max_depth=4, learning_rate=0.05, random_state=42)
-            model.fit(X.iloc[train_idx], y.iloc[train_idx])
-            
-            predictions = model.predict(X.iloc[test_idx])
-            y_test_np = y.iloc[test_idx].values
-            
-            feature_importances_ = model.feature_importances_
-            
-            mse = mean_squared_error(y_test_np, predictions)
-            rmse = float(np.sqrt(mse))
-            mae = mean_absolute_error(y_test_np, predictions)
-            r2 = r2_score(y_test_np, predictions)
-        else:
-            device_type = "cuda" if torch.cuda.is_available() else "cpu"
-            X_tensor = torch.tensor(X.values, dtype=torch.float32).to(device_type)
-            y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1, 1).to(device_type)
-            
-            if TORCH_GEOMETRIC_AVAILABLE:
-                edge_index = knn_graph(X_tensor, k=5, loop=True)
-            else:
-                edge_index = None
 
-            num_nodes = X_tensor.size(0)
-            indices = np.random.permutation(num_nodes)
-            split = int(0.8 * num_nodes)
-            train_idx = torch.tensor(indices[:split], dtype=torch.long)
-            test_idx = torch.tensor(indices[split:], dtype=torch.long)
+        device_type = "cuda" if torch.cuda.is_available() else "cpu"
+        X_tensor = torch.tensor(X.values, dtype=torch.float32).to(device_type)
+        y_tensor = torch.tensor(y.values, dtype=torch.float32).view(-1, 1).to(device_type)
+        
+        if TORCH_GEOMETRIC_AVAILABLE:
+            edge_index = knn_graph(X_tensor, k=5, loop=True)
+        else:
+            edge_index = None
+
+        num_nodes = X_tensor.size(0)
+        indices = np.random.permutation(num_nodes)
+        split = int(0.8 * num_nodes)
+        train_idx = torch.tensor(indices[:split], dtype=torch.long)
+        test_idx = torch.tensor(indices[split:], dtype=torch.long)
+        
+        model = TabularGAT(in_channels=X_tensor.size(1), out_channels=1).to(device_type)
+        optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+        criterion = nn.MSELoss()
+        
+        model.train()
+        for epoch in range(50):
+            optimizer.zero_grad()
+            out = model(X_tensor, edge_index)
+            loss = criterion(out[train_idx], y_tensor[train_idx])
+            loss.backward()
+            optimizer.step()
             
-            model = TabularGAT(in_channels=X_tensor.size(1), out_channels=1).to(device_type)
-            optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
-            criterion = nn.MSELoss()
+        model.eval()
+        with torch.no_grad():
+            out = model(X_tensor, edge_index)
+            predictions = out[test_idx].cpu().numpy().flatten()
+            y_test_np = y_tensor[test_idx].cpu().numpy().flatten()
             
-            model.train()
-            for epoch in range(50):
-                optimizer.zero_grad()
-                out = model(X_tensor, edge_index)
-                loss = criterion(out[train_idx], y_tensor[train_idx])
-                loss.backward()
-                optimizer.step()
-                
-            model.eval()
-            with torch.no_grad():
-                out = model(X_tensor, edge_index)
-                predictions = out[test_idx].cpu().numpy().flatten()
-                y_test_np = y_tensor[test_idx].cpu().numpy().flatten()
-                
-            if TORCH_GEOMETRIC_AVAILABLE:
-                w = model.conv1.lin.weight.detach().cpu().numpy()
-            else:
-                w = model.fc1.weight.detach().cpu().numpy()
-                
-            imp = np.abs(w).sum(axis=0)
-            imp = imp / (np.sum(imp) + 1e-9)
-            feature_importances_ = imp
+        if TORCH_GEOMETRIC_AVAILABLE:
+            w = model.conv1.lin.weight.detach().cpu().numpy()
+        else:
+            w = model.fc1.weight.detach().cpu().numpy()
             
-            mse = mean_squared_error(y_test_np, predictions)
-            rmse = float(np.sqrt(mse))
-            mae = mean_absolute_error(y_test_np, predictions)
-            r2 = r2_score(y_test_np, predictions)
+        imp = np.abs(w).sum(axis=0)
+        imp = imp / (np.sum(imp) + 1e-9)
+        feature_importances_ = imp
+        
+        mse = mean_squared_error(y_test_np, predictions)
+        rmse = float(np.sqrt(mse))
+        mae = mean_absolute_error(y_test_np, predictions)
+        r2 = r2_score(y_test_np, predictions)
         
         # Explainable AI: Feature Importance
         feature_importances = [{"feature": f, "importance": float(i)} for f, i in zip(X.columns, feature_importances_)]
@@ -259,59 +230,45 @@ class MLService:
             }])
 
             forecasts = {}
-            if not TORCH_AVAILABLE:
-                import redacted as xgb
-                for col in numeric_weather_cols:
-                    clean_series = df_work.dropna(subset=[col])
-                    if len(clean_series) < 10:
-                        continue
-                    X_mat = clean_series[feature_cols]
-                    y_mat = clean_series[col]
+            device_type = "cuda" if torch.cuda.is_available() else "cpu"
+            for col in numeric_weather_cols:
+                clean_series = df_work.dropna(subset=[col])
+                if len(clean_series) < 10:
+                    continue
                     
-                    model = xgb.RedactedRegressor(n_estimators=50, max_depth=3, learning_rate=0.1, random_state=42)
-                    model.fit(X_mat, y_mat)
-                    pred_val = model.predict(target_X)[0]
-                    forecasts[col] = round(float(pred_val), 2)
-            else:
-                device_type = "cuda" if torch.cuda.is_available() else "cpu"
-                for col in numeric_weather_cols:
-                    clean_series = df_work.dropna(subset=[col])
-                    if len(clean_series) < 10:
-                        continue
-                        
-                    X_mat = clean_series[feature_cols]
-                    y_mat = clean_series[col]
+                X_mat = clean_series[feature_cols]
+                y_mat = clean_series[col]
 
-                    X_combined = pd.concat([X_mat, target_X], ignore_index=True)
-                    X_tensor = torch.tensor(X_combined.values, dtype=torch.float32).to(device_type)
-                    y_tensor = torch.tensor(y_mat.values, dtype=torch.float32).view(-1, 1).to(device_type)
-                    
-                    if TORCH_GEOMETRIC_AVAILABLE:
-                        edge_index = knn_graph(X_tensor, k=3, loop=True)
-                    else:
-                        edge_index = None
+                X_combined = pd.concat([X_mat, target_X], ignore_index=True)
+                X_tensor = torch.tensor(X_combined.values, dtype=torch.float32).to(device_type)
+                y_tensor = torch.tensor(y_mat.values, dtype=torch.float32).view(-1, 1).to(device_type)
+                
+                if TORCH_GEOMETRIC_AVAILABLE:
+                    edge_index = knn_graph(X_tensor, k=3, loop=True)
+                else:
+                    edge_index = None
 
-                    model = TabularGAT(in_channels=X_tensor.size(1), out_channels=1).to(device_type)
-                    optimizer = optim.Adam(model.parameters(), lr=0.02)
-                    criterion = nn.MSELoss()
+                model = TabularGAT(in_channels=X_tensor.size(1), out_channels=1).to(device_type)
+                optimizer = optim.Adam(model.parameters(), lr=0.02)
+                criterion = nn.MSELoss()
+                
+                train_idx = torch.arange(0, len(X_mat), dtype=torch.long)
+                target_idx = len(X_mat)
+                
+                model.train()
+                for _ in range(30):
+                    optimizer.zero_grad()
+                    out = model(X_tensor, edge_index)
+                    loss = criterion(out[train_idx], y_tensor)
+                    loss.backward()
+                    optimizer.step()
                     
-                    train_idx = torch.arange(0, len(X_mat), dtype=torch.long)
-                    target_idx = len(X_mat)
+                model.eval()
+                with torch.no_grad():
+                    out = model(X_tensor, edge_index)
+                    pred_val = float(out[target_idx].cpu().item())
                     
-                    model.train()
-                    for _ in range(30):
-                        optimizer.zero_grad()
-                        out = model(X_tensor, edge_index)
-                        loss = criterion(out[train_idx], y_tensor)
-                        loss.backward()
-                        optimizer.step()
-                        
-                    model.eval()
-                    with torch.no_grad():
-                        out = model(X_tensor, edge_index)
-                        pred_val = float(out[target_idx].cpu().item())
-                        
-                    forecasts[col] = round(pred_val, 2)
+                forecasts[col] = round(pred_val, 2)
 
             return {
                 "target_date": f"{day:02d}/{month:02d}",
