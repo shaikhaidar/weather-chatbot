@@ -41,6 +41,32 @@ The hardware station runs on a **Raspberry Pi 4** node. To align with final hard
 
 ---
 
+## 🛠️ MCP Tools & Developer Tooling
+
+### 1. Model Context Protocol (MCP) Tools
+The FastAPI backend runs a standard MCP server using `FastMCP` which exposes internal microservices as callable tools to external clients (e.g., Claude Desktop, custom agent terminals):
+*   **`get_iot_reading`**: Retrieves the current active temperature, humidity, pressure, particulate matter, rainfall, and wind readings from the active transport interface.
+*   **`get_iot_status`**: Queries hardware connectivity properties (Serial status, MQTT presence, last received packet timestamp, port configs).
+*   **`connect_raspberry_pi_serial`**: Commands the backend to initialize a physical USB/UART connection to the Raspberry Pi over a specified port (e.g., `COM3`, `/dev/ttyUSB0`) and baud rate (e.g., `9600`).
+*   **`connect_mqtt_broker`**: Binds a wireless connection listener to the specified MQTT broker host (e.g., `192.168.1.100`) subscribing to the telemetry channel.
+*   **`run_gnn_spatial_prediction`**: Runs a transductive inference forward pass across the GNN sensor node matrices.
+*   **`analyze_text_intent`**: Feeds string messages directly into the NLP classification pipeline.
+*   **`get_recommendations`**: Fetches contextual recommendation chips based on the active intent.
+
+### 2. Developer & Environment Tools
+The following developer tools and libraries are utilized across the weatherBOT pipeline:
+*   **Ollama**: Local containerized engine hosting quantized LLM weights (`llama3.2:3b` and `llama3.1:8b`) to prevent data egress and ensure zero-cloud dependency.
+*   **Mosquitto MQTT Broker**: Standard publish-subscribe broker running on the Raspberry Pi node for local wireless telemetry broadcast.
+*   **PySerial**: Used for serial USB connectivity verification and raw JSON line reading over USB ports.
+*   **PyTorch & PyTorch Geometric**: Machine learning framework backing the transductive `TabularGAT` forecasting model and the multi-node spatial `SpatialWeatherGNN` Conv networks.
+*   **FastAPI & Uvicorn**: Underlying REST server and ASGI server managing endpoint routers.
+*   **SQLite (SQLAlchemy)**: In-memory/file-based database handling local session persistence, uploaded CSV tracking, and active model versions.
+*   **Vite Plugin PWA**: Progressive Web App compiler generating manifest schemas, precaching rules, and service worker runtime caching strategies.
+*   **Tailwind CSS v4 & Shadcn/UI**: Modern UI components and styling configurations.
+*   **ngrok / Cloudflare Tunnels**: Used during local testing to expose secure edge tunnels (`localhost:5173`) to external networks or validation platforms.
+
+---
+
 ## 🛠️ Completed Work & System Architecture
 
 The following key features and upgrades have been successfully completed:

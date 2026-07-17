@@ -117,6 +117,34 @@ To ensure alignment with physical hardware deployments, references to the ambien
     \item \textbf{Wind Vane}: Cardinal and angular wind direction reader via ADC.
 \end{itemize}
 
+\section{MCP Tools \& Developer Tooling}
+
+\subsection{Model Context Protocol (MCP) Tools}
+The FastAPI backend runs a standard MCP server using \texttt{FastMCP} which exposes internal microservices as callable tools to external clients (e.g., Claude Desktop, custom agent terminals):
+\begin{itemize}
+    \item \textbf{\texttt{get\_iot\_reading}}: Retrieves the current active temperature, humidity, pressure, particulate matter, rainfall, and wind readings from the active transport interface.
+    \item \textbf{\texttt{get\_iot\_status}}: Queries hardware connectivity properties (Serial status, MQTT presence, last received packet timestamp, port configs).
+    \item \textbf{\texttt{connect\_raspberry\_pi\_serial}}: Commands the backend to initialize a physical USB/UART connection to the Raspberry Pi over a specified port (e.g., \texttt{COM3}, \texttt{/dev/ttyUSB0}) and baud rate (e.g., \texttt{9600}).
+    \item \textbf{\texttt{connect\_mqtt\_broker}}: Binds a wireless connection listener to the specified MQTT broker host (e.g., \texttt{192.168.1.100}) subscribing to the telemetry channel.
+    \item \textbf{\texttt{run\_gnn\_spatial\_prediction}}: Runs a transductive inference forward pass across the GNN sensor node matrices.
+    \item \textbf{\texttt{analyze\_text\_intent}}: Feeds string messages directly into the NLP classification pipeline.
+    \item \textbf{\texttt{get\_recommendations}}: Fetches contextual recommendation chips based on the active intent.
+\end{itemize}
+
+\subsection{Developer \& Environment Tools}
+The following developer tools and libraries are utilized across the weatherBOT pipeline:
+\begin{itemize}
+    \item \textbf{Ollama}: Local containerized engine hosting quantized LLM weights (\texttt{llama3.2:3b} and \texttt{llama3.1:8b}) to prevent data egress and ensure zero-cloud dependency.
+    \item \textbf{Mosquitto MQTT Broker}: Standard publish-subscribe broker running on the Raspberry Pi node for local wireless telemetry broadcast.
+    \item \textbf{PySerial}: Used for serial USB connectivity verification and raw JSON line reading over USB ports.
+    \item \textbf{PyTorch \& PyTorch Geometric}: Machine learning framework backing the transductive \texttt{TabularGAT} forecasting model and the multi-node spatial \texttt{SpatialWeatherGNN} Conv networks.
+    \item \textbf{FastAPI \& Uvicorn}: Underlying REST server and ASGI server managing endpoint routers.
+    \item \textbf{SQLite (SQLAlchemy)}: In-memory/file-based database handling local session persistence, uploaded CSV tracking, and active model versions.
+    \item \textbf{Vite Plugin PWA}: Progressive Web App compiler generating manifest schemas, precaching rules, and service worker runtime caching strategies.
+    \item \textbf{Tailwind CSS v4 \& Shadcn/UI}: Modern UI components and styling configurations.
+    \item \textbf{ngrok / Cloudflare Tunnels}: Used during local testing to expose secure edge tunnels (\texttt{localhost:5173}) to external networks or validation platforms.
+\end{itemize}
+
 \section{Completed Work \& Milestones}
 The development timeline has finalized several key upgrades:
 \begin{enumerate}
