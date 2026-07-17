@@ -56,7 +56,7 @@ class ConversationService:
         
         mode = system_mode.lower()
             
-        # Context building based on Tri-Mode
+        # Context building based on System Mode
         live_context = ""
         gnn_result = ""
         ml_context = ""
@@ -181,7 +181,7 @@ class ConversationService:
             "Communication & Storage: MQTT (Mosquitto Broker) -> Stores timeseries data in InfluxDB and visualizes it in real-time using Grafana dashboards.\n"
         )
             
-        hw_keywords = ["sensor", "hardware", "bme", "sps", "bh", "yl", "tipping", "anemometer", "vane", "pi", "mqtt", "influx", "grafana", "serial", "uart", "i2c", "spec"]
+        hw_keywords = ["sensor", "hardware", "bme", "sps", "yl", "tipping", "anemometer", "vane", "pi", "mqtt", "influx", "grafana", "serial", "uart", "i2c", "spec"]
         include_hw = any(kw in user_message.lower() for kw in hw_keywords)
         
         system_prompt = (

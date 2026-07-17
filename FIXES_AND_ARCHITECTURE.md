@@ -89,7 +89,7 @@ weatherBOT/
 │   │   └── mcp.py                     # ★ MCP route dispatcher + IoT connect
 │   │
 │   ├── services/
-│   │   ├── conversation_service.py    # Ollama Tri-Mode inference
+│   │   ├── conversation_service.py    # Ollama System Mode inference
 │   │   ├── dataset_service.py         # CSV parsing, sensor alias detection
 │   │   ├── ml_service.py              # Redacted training + self-learning loop
 │   │   ├── mcp_router.py              # ★ MCP Service Router (central dispatcher)
@@ -146,7 +146,7 @@ User types message
   RecommendationEngine.get_recommendations() ← Follow-up chips
        │
        ▼
-[ConversationService — Tri-Mode Logic]
+[ConversationService — System Mode Logic]
   ┌──────────────────────────────────────┐
   │ Historical Data Mode                 │
   │   → Fetch active ModelVersion (DB)  │
@@ -357,4 +357,4 @@ ollama run llama3.1:8b
 ### Raspberry Pi Setup
 - **Serial**: Connect Pi via USB, set port `COM3` or `/dev/ttyUSB0` in Settings
 - **MQTT**: Run `mosquitto` on Pi, enter Pi IP in Settings
-- Pi sends JSON: `{"temperature": 23.1, "humidity": 61.2, "pressure": 1012.8, "wind_speed": 4.3, "rainfall": 0.0, "light_intensity": 720.0}`
+- Pi sends JSON: `{"temperature": 23.1, "humidity": 61.2, "pressure": 1012.8, "wind_speed": 4.3, "rainfall": 0.0}`

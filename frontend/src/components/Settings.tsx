@@ -16,7 +16,6 @@ interface IoTReading {
   pressure?: number;
   wind_speed?: number;
   rainfall?: number;
-  light_intensity?: number;
   source?: string;
   timestamp?: string;
 }
@@ -129,7 +128,6 @@ const Settings = ({ systemMode, setSystemMode }: { systemMode: string; setSystem
                 { label: '📊 Pressure', value: `${iotReading.pressure} hPa` },
                 { label: '💨 Wind', value: `${iotReading.wind_speed} m/s` },
                 { label: '🌧️ Rain', value: `${iotReading.rainfall} mm` },
-                { label: '☀️ Light', value: `${iotReading.light_intensity} lux` },
               ].map(item => (
                 <div key={item.label} className="bg-gray-50 rounded-lg p-2 text-center">
                   <p className="text-[10px] text-gray-500">{item.label}</p>
