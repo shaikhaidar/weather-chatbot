@@ -1,0 +1,566 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\geometry{a4paper, margin=1in}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Summer Research Fellowship Programme Progress Report},
+    pdfpagemode=FullScreen,
+}
+
+\begin{document}
+
+% --- Cover Page ---
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    % Optional cover image/logo from page 1
+    \includegraphics[width=0.4\textwidth]{images/page_1_img_1_X4.png}\\[1.5cm]
+    
+    {\scshape\LARGE Summer Research Fellowship Programme (SRFP) \par}
+    \vspace{1cm}
+    {\scshape\Large Progress Report -- July 2026\par}
+    \vspace{1.5cm}
+    
+    {\huge\bfseries LAST 4-WEEK REPORT\par}
+    \vspace{0.5cm}
+    {\large\bfseries AIoT Multi-Modal Sensing Overview\par}
+    \vspace{0.5cm}
+    {\large Weather Station Project\par}
+    \vspace{2cm}
+    
+    \begin{minipage}[t]{0.45\textwidth}
+        \begin{flushleft} \large
+            \textbf{Submitted by:}\\
+            SHAIK HAIDAR\\
+            Application No: ENGS5618\\
+            Electronics and Communication Department\\
+            UCEK-JNTUK (Autonomous), Kakinada
+        \end{flushleft}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \begin{flushright} \large
+            \textbf{Under the Supervision of:}\\
+            Dr. T V PRABHAKAR\\
+            IISc-DESE, Bangalore
+        \end{flushright}
+    \end{minipage}
+    
+    \vfill
+\end{titlepage}
+
+\newpage
+
+% --- Table of Contents ---
+\tableofcontents
+\newpage
+
+% --- Abstract Section ---
+\begin{abstract}
+This work presents WeatherGPT, an AI-assisted weather monitoring and forecasting framework that integrates Artificial Intelligence (AI), Internet of Things (IoT), edge computing, and conversational intelligence into a unified environmental monitoring platform. The system employs a Raspberry Pi 4 integrated with multiple environmental sensors to continuously monitor temperature, humidity, atmospheric pressure, particulate matter, rainfall, wind speed, and wind direction. Sensor observations are processed at the edge, transmitted using the MQTT communication protocol, archived for historical analysis, and visualized through an interactive dashboard. A custom Natural Language Processing (NLP) pipeline enables users to retrieve historical weather information, perform statistical analysis, compare weather conditions across multiple dates, and interact with the system using natural language.
+
+Short-term weather forecasting is performed using a stacked Long Short-Term Memory (LSTM) neural network implemented in PyTorch and trained on historical weather observations to generate multivariate forecasts for up to 30 days. The framework further integrates locally hosted Large Language Models (LLMs), REST APIs, command-line and web-based interfaces, and Model Context Protocol (MCP) support to provide reliable offline operation and seamless interoperability with external AI applications. Building upon this foundation, the research is being extended towards the development of an advanced WeatherBot based on Graph Neural Networks (GNNs) to model spatial and temporal relationships among multiple sensing nodes, enabling scalable multi-node weather prediction and intelligent environmental analysis for next-generation AIoT weather monitoring systems.
+\end{abstract}
+
+\vspace{0.5cm}
+\noindent\textbf{Keywords:} WeatherGPT, Artificial Intelligence (AI), Natural Language Processing (NLP), Conversational AI, Weather Forecasting, Historical Weather Data Retrieval, Time Series Forecasting, Long Short-Term Memory (LSTM), PyTorch, Ollama, Decision Engine, Offline AI Assistant, Information Retrieval, SQLite Database, REST API, Model Context Protocol (MCP), Weather Analytics, Bangalore Weather Dataset.
+
+\newpage
+
+% --- Section 1: Introduction ---
+\section{Introduction}
+Environmental monitoring has become increasingly important for understanding atmospheric behavior, supporting climate studies, improving agricultural practices, enabling disaster preparedness, and facilitating the development of smart cities. Continuous observation of environmental parameters such as temperature, humidity, atmospheric pressure, particulate matter concentration, rainfall, wind speed, and wind direction provides valuable insights into changing weather conditions and environmental quality. Conventional weather monitoring systems primarily focus on data collection and visualization; however, the growing availability of Artificial Intelligence (AI), Internet of Things (IoT), and edge computing technologies has created opportunities to develop more intelligent systems capable of not only acquiring environmental data but also interpreting, analyzing, and predicting weather conditions in real time.
+
+This project presents an AIoT-based Multi-Modal Weather Monitoring and Intelligent Weather Assistant System that combines an embedded weather station with a conversational AI chatbot. The weather monitoring subsystem is built around a Raspberry Pi 4 and integrates multiple environmental sensors to continuously measure key atmospheric parameters, including temperature, humidity, pressure, particulate matter, rainfall, wind speed, and wind direction. Sensor observations are processed locally at the edge and transmitted using the lightweight MQTT communication protocol through a Mosquitto Broker. The collected data are stored for long-term analysis and visualized through an interactive dashboard, providing users with real-time access to environmental information while ensuring reliable and efficient data management.
+
+To enhance user interaction and extend the capabilities of the weather station, the project incorporates WeatherGPT (WGPT), an AI-powered weather intelligence assistant that enables users to access weather information through natural language conversations. The chatbot combines Natural Language Processing (NLP), machine learning, and Large Language Models (LLMs) to interpret user queries, retrieve historical weather observations, perform statistical analysis, and generate short-term weather forecasts. Historical weather data are obtained from locally stored datasets, while future weather conditions are predicted using a Long Short-Term Memory (LSTM) neural network trained on historical weather records. Retrieved data and prediction results are converted into conversational responses using a locally hosted Ollama-based LLM, with a rule-based response mechanism serving as a fallback to ensure uninterrupted offline operation.
+
+The overall system follows a modular architecture that separates sensing, data acquisition, communication, storage, artificial intelligence, and user interaction into independent functional layers. This design improves scalability, simplifies maintenance, and allows additional sensors, forecasting models, and AI services to be incorporated with minimal modifications. Furthermore, the system supports multiple user interfaces, including a command-line chatbot, a web-based dashboard with REST APIs, and a Model Context Protocol (MCP) server, enabling seamless integration with external AI applications and intelligent assistants.
+
+By integrating edge computing, IoT communication, machine learning, and conversational AI into a unified platform, the proposed system demonstrates an efficient and cost-effective approach for intelligent environmental monitoring. Beyond conventional weather stations, it provides users with an interactive environment capable of real-time monitoring, historical data exploration, and predictive weather analysis, making it well suited for research, educational, and smart environmental monitoring applications.
+
+The remainder of this report describes the system architecture, hardware and software implementation, sensor integration, communication framework, chatbot design, forecasting methodology, and experimental evaluation of the proposed AIoT-based intelligent weather monitoring system.
+
+
+% --- Section 2: Summary of First 4 Weeks ---
+\section{Summary of First 4 Weeks of Internship}
+During the first four weeks of the Summer Research Fellowship, the primary focus was on understanding the architecture and operation of an intelligent weather monitoring system. This involved studying the Raspberry Pi 4B platform, environmental sensors, communication protocols, network time synchronization, and data quality metrics such as AoI and VAoI. A comprehensive review of relevant literature was also carried out to understand the system architecture, data flow, and edge-based processing, providing a strong foundation for the project.
+
+Based on this understanding, the scope of the project was extended by exploring potential improvements to the existing weather station. This included studying additional sensing and synchronization techniques, evaluating power-monitoring components, and investigating energy optimization approaches such as Dynamic Voltage and Frequency Scaling (DVFS) for Raspberry Pi systems. These studies established the technical groundwork for the implementation and evaluation phases planned for the remainder of the internship.
+
+
+% --- Section 3: About the Weather Station ---
+\section{About the Weather Station}
+The proposed AIoT Multi-Modal Weather Station is designed as a comprehensive environmental monitoring platform capable of continuously sensing, processing, storing, and visualizing multiple atmospheric parameters in real time. Unlike conventional weather stations that primarily focus on a limited set of meteorological variables, this system integrates multiple sensing modalities to provide a holistic understanding of environmental conditions. The architecture combines heterogeneous sensors, edge computing, lightweight communication protocols, local storage, and visualization techniques to create a reliable and scalable monitoring solution.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_6_img_1_X5.jpg}
+    \caption{Model of the Weather Station}
+    \label{fig:model_weather_station}
+\end{figure}
+
+\subsection{Project Overview}
+Environmental monitoring has become increasingly important due to rapid climate change, urbanization, and growing concerns regarding air quality and weather-related hazards. Accurate measurement of atmospheric parameters enables researchers and engineers to analyze weather patterns, monitor pollution levels, and develop intelligent environmental monitoring systems.
+
+The proposed AIoT Multi-Modal Weather Station addresses these requirements by integrating multiple environmental sensors with a Raspberry Pi 4-based processing unit. The collected sensor readings are processed locally and transmitted using the MQTT communication protocol before being archived in CSV format for visualization and future analysis. The system is capable of continuously monitoring multiple weather parameters while maintaining a lightweight and energy-efficient architecture suitable for research and field deployments.
+
+The modular implementation ensures flexibility in hardware expansion and software enhancements while providing a robust platform for continuous environmental monitoring.
+
+\subsection{Objectives}
+The primary objectives of the proposed weather monitoring station are summarized below:
+\begin{itemize}
+    \item To continuously monitor multiple environmental parameters in real time.
+    \item To integrate heterogeneous weather sensors into a unified monitoring platform.
+    \item To perform reliable local acquisition and preprocessing of sensor observations.
+    \item To establish lightweight communication using the MQTT publish-subscribe protocol.
+    \item To maintain local archival of weather observations using CSV-based storage.
+    \item To provide intuitive visualization of environmental data through a dashboard interface.
+    \item To develop a modular and scalable AIoT architecture suitable for future research applications.
+\end{itemize}
+
+\subsection{Implemented System Architecture}
+The implemented weather station follows a layered architecture designed to simplify data acquisition, communication, storage, and visualization. Each subsystem performs a dedicated function while collectively contributing to reliable environmental monitoring.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_9_img_1_X7.png}
+    \caption{Implemented System Architecture Diagram}
+    \label{fig:system_architecture}
+\end{figure}
+
+The major components of the implemented architecture include:
+\begin{itemize}
+    \item Sensor Layer
+    \item Raspberry Pi 4 (Data Acquisition and Local Processing)
+    \item MQTT Communication Layer
+    \item Mosquitto MQTT Broker
+    \item CSV Data Logging
+    \item Dashboard Visualization
+    \item End Users
+\end{itemize}
+The interaction among these components enables continuous monitoring of atmospheric conditions while maintaining efficient data handling and minimal communication overhead.
+
+\subsubsection{Sensor Layer}
+The Sensor Layer forms the foundation of the AIoT weather station by continuously acquiring environmental observations from the surrounding atmosphere. Multiple sensors are integrated to capture different meteorological and air-quality parameters, thereby providing a comprehensive representation of weather conditions.
+
+The implemented sensing devices include:
+\begin{itemize}
+    \item BME280 for measuring temperature, relative humidity, and atmospheric pressure.
+    \item SPS30 for measuring particulate matter concentrations including PM1.0, PM2.5, PM4.0, and PM10.
+    \item YL-83 for detecting the presence of rainfall.
+    \item Tipping Bucket Rain Gauge for measuring accumulated rainfall.
+    \item Anemometer for monitoring wind speed.
+    \item Wind Vane for measuring wind direction.
+\end{itemize}
+Each sensor communicates with the Raspberry Pi through suitable interfaces such as I²C, UART, or GPIO depending on its communication protocol. The combination of multiple sensing modalities enables comprehensive environmental monitoring under varying atmospheric conditions.
+
+\subsubsection{Raspberry Pi 4 (Data Acquisition and Local Processing)}
+The Raspberry Pi 4 serves as the central processing unit of the proposed weather station. It acts as the interface between the sensing layer and the communication infrastructure by periodically acquiring measurements from all connected sensors.
+
+Upon receiving sensor observations, the Raspberry Pi performs several preprocessing operations, including sensor polling, data formatting, timestamp generation, and validation of acquired measurements. These preprocessing steps ensure that only structured and meaningful environmental information is forwarded to subsequent stages of the system.
+
+Local processing minimizes computational overhead on downstream applications while improving the overall reliability and efficiency of the weather monitoring platform.
+
+\subsubsection{MQTT Communication Layer}
+Following local processing, the acquired environmental observations are transmitted using the Message Queuing Telemetry Transport (MQTT) protocol. MQTT is a lightweight publish-subscribe communication protocol specifically designed for Internet of Things applications requiring minimal bandwidth consumption and reliable communication.
+
+Within the implemented architecture, the Raspberry Pi functions as the MQTT Publisher by periodically publishing processed weather observations to predefined communication topics. The publish-subscribe model eliminates direct coupling between data producers and consumers, thereby improving scalability and communication efficiency.
+
+\subsubsection{Mosquitto MQTT Broker}
+The Mosquitto Broker functions as the communication hub of the proposed system. It receives MQTT messages published by the Raspberry Pi and manages their routing toward the storage subsystem.
+
+The broker is responsible for:
+\begin{itemize}
+    \item Receiving published environmental observations.
+    \item Managing MQTT communication topics.
+    \item Forwarding weather data to subscribed applications.
+    \item Ensuring reliable message delivery throughout the communication process.
+\end{itemize}
+The use of Mosquitto simplifies communication management while enabling efficient data exchange between hardware and software components.
+
+\subsubsection{CSV Data Logging}
+To preserve environmental observations for future reference, all incoming weather data are archived locally as CSV files.
+
+CSV-based storage provides a lightweight and platform-independent mechanism for maintaining historical environmental records. This approach enables efficient retrieval of previously collected observations while simplifying data analysis and visualization.
+
+The local storage mechanism also serves as a backup repository, ensuring that valuable sensor data remain available even during temporary communication interruptions.
+
+\subsubsection{Dashboard Visualization}
+The visualization dashboard provides a user-friendly graphical interface for observing environmental conditions in real time.
+
+The dashboard continuously retrieves stored weather observations from the CSV files and presents them through graphical charts and numerical indicators. The visualization interface enables users to monitor current weather conditions while simultaneously analyzing historical environmental trends.
+
+The dashboard visualizes the following parameters:
+\begin{itemize}
+    \item Temperature, Relative Humidity, Atmospheric Pressure
+    \item PM1.0, PM2.5, PM4.0, PM10
+    \item Rain Detection, Rainfall Amount
+    \item Wind Speed, Wind Direction
+\end{itemize}
+The visualization platform significantly improves the interpretability of collected weather information and supports efficient environmental monitoring.
+
+\subsubsection{End Users}
+The final component of the implemented architecture consists of the end users who interact with the weather monitoring station through the visualization dashboard. The dashboard enables these users to continuously monitor environmental conditions, analyze historical observations, and evaluate overall system performance through an intuitive graphical interface.
+
+\subsection{Overall Data Flow}
+The operational workflow of the implemented AIoT Multi-Modal Weather Station is illustrated in Figure~\ref{fig:data_flow}. The data flow begins with the environmental sensors, which continuously acquire atmospheric observations. These measurements are transferred to the Raspberry Pi 4, where local data acquisition and preprocessing are performed. The processed sensor readings are then published using the MQTT protocol and forwarded to the Mosquitto MQTT Broker. Rather than storing the observations in a remote database, the proposed implementation maintains local CSV-based storage, where all environmental measurements are archived for future retrieval. The visualization dashboard periodically reads the stored CSV files and presents the information through interactive graphical interfaces. Finally, researchers, developers, and system operators access the dashboard to observe both real-time and historical environmental conditions.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_11_img_1_X7.png}
+    \caption{Overall Data Flow of the Weather Station}
+    \label{fig:data_flow}
+\end{figure}
+
+
+% --- Section 4: Work Done ---
+\section{Work Done}
+
+\subsection{Analysis of Weather Station State Architecture}
+The initial phase of the second half of the internship focused on understanding and evaluating the operational state architecture of the weather station. Before introducing artificial intelligence and predictive capabilities into the system, it was necessary to understand how the existing weather station monitored environmental conditions and generated alerts based on sensor observations.
+
+A detailed analysis was conducted on the state transition mechanism implemented within the weather station. The objective of this study was to determine whether the existing four-state alerting framework was sufficient for reliable operation or whether additional intermediate states would improve the accuracy and responsiveness of the monitoring system.
+
+The functionality of each operational state was examined by studying the corresponding transition conditions, threshold values, and alert generation logic. Particular attention was given to understanding how changes in meteorological parameters triggered transitions between different operational states and how these transitions influenced the decision-making process of the monitoring system.
+
+Different state configurations were evaluated conceptually by considering possible scenarios such as gradual environmental changes, sudden fluctuations in weather conditions, and sensor noise. The analysis also included studying the impact of introducing additional alerting states on system complexity, computational overhead, maintainability, and interpretability.
+
+The complete workflow of the proposed weather monitoring station can be summarized as follows:
+\begin{itemize}
+    \item Environmental sensors continuously monitor atmospheric conditions.
+    \item The Raspberry Pi 4 acquires and locally processes the sensor observations.
+    \item Processed weather data are published using the MQTT protocol.
+    \item The Mosquitto MQTT Broker receives and manages the published messages.
+    \item Sensor observations are archived locally in CSV files.
+    \item The dashboard retrieves weather information from the CSV files.
+    \item End users visualize and analyze the environmental observations through the dashboard.
+\end{itemize}
+
+Based on the observations obtained during this analysis, it was concluded that the existing four-state architecture was capable of representing the required operational conditions effectively for the intended application. Introducing additional states would increase the complexity of the system without providing a proportionate improvement in monitoring performance. Therefore, the existing state model was retained as the foundation for the subsequent development of the AI-assisted weather prediction framework.
+
+The knowledge acquired during this phase provided a comprehensive understanding of the weather station’s operational workflow and served as a prerequisite for integrating machine learning and conversational intelligence into the existing architecture.
+
+\subsection{Literature Review and Investigation of Optimization Techniques}
+Following the analysis of the weather station architecture, an extensive literature review was conducted to investigate recent advancements in weather prediction systems, optimization methodologies, and artificial intelligence techniques applicable to meteorological forecasting.
+
+Research papers from journals, conference proceedings, and technical publications were reviewed to understand the evolution of weather forecasting methods, ranging from conventional statistical approaches to modern machine learning and deep learning techniques. The review primarily focused on methodologies used for time-series prediction, sequence modelling, feature engineering, optimization strategies, and intelligent decision-support systems.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_13_img_1_X7.png}
+    \caption{Overview of Machine Learning Model Alternatives}
+    \label{fig:model_alternatives}
+\end{figure}
+
+Particular emphasis was placed on identifying optimization techniques capable of improving prediction accuracy while maintaining computational efficiency. Various studies were examined to understand the influence of data preprocessing, feature normalization, hyperparameter tuning, learning rate optimization, loss function selection, and model regularization on forecasting performance. Different optimization algorithms and training strategies reported in the literature were also compared to understand their advantages and limitations in weather prediction applications.
+
+In addition to optimization methods, the literature survey included a comparative study of several predictive algorithms commonly used in meteorological forecasting, including Linear Regression, Decision Trees, Random Forests, Support Vector Machines (SVM), Artificial Neural Networks (ANN), Recurrent Neural Networks (RNN), Gated Recurrent Units (GRU), and Long Short-Term Memory (LSTM) networks. Each algorithm was evaluated based on its ability to model nonlinear relationships, capture temporal dependencies, process sequential weather observations, and generate accurate long-term forecasts.
+
+The review indicated that recurrent deep learning architectures consistently outperformed conventional machine learning models when applied to multivariate weather time-series datasets. Among these, the Long Short-Term Memory (LSTM) network demonstrated superior capability in learning long-range temporal dependencies while effectively addressing the vanishing gradient problem encountered in conventional recurrent neural networks. Later, due to its simplicity in designing, it was decided to choose the LSTM algorithm to develop a weather predicting chatbot.
+
+Overall, the literature review established the theoretical foundation for the project by identifying state-of-the-art forecasting methodologies, evaluating existing optimization techniques, and providing a systematic basis for the architectural and algorithmic decisions made during the development of the intelligent weather prediction system.
+
+\subsection{Development of the WeatherGPT Framework}
+Following the selection of the LSTM model and the overall system architecture, the implementation focused on developing a complete AI-assisted weather prediction framework, referred to as WeatherGPT. The objective was to integrate natural language understanding, machine learning-based weather forecasting, and conversational artificial intelligence into a unified system capable of providing accurate and user-friendly weather information.
+
+\subsubsection{Development of the Core Processing Engine}
+The first stage of development concentrated on designing the core processing engine, which serves as the intelligence layer of the WeatherGPT framework. This layer was responsible for understanding user queries, retrieving relevant weather information, generating forecasts, and producing natural language responses.
+
+A custom Natural Language Processing (NLP) pipeline was developed to process user queries efficiently. The pipeline consisted of a tokenizer, an intent classification module, and an entity extraction mechanism. The tokenizer segmented user input into meaningful tokens, while the intent classifier identified the purpose of the query, such as requesting weather information for a specific date, obtaining statistical summaries, or generating future weather forecasts. The entity extraction module identified temporal information, including dates and time periods, enabling the system to retrieve relevant weather records accurately.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_16_img_1_X7.png}
+    \caption{Architecture of the LSTM Weather Chatbot}
+    \label{fig:chatbot_architecture}
+\end{figure}
+
+In situations where neither language model was accessible, a rule-based response generation module ensured uninterrupted system operation. This fallback architecture significantly improved system reliability and fault tolerance.
+
+\subsection{Integration of Large Language Models}
+To provide conversational responses, the prediction engine was integrated with a Large Language Model (LLM). Initially, Ollama 3.1 (8B) was employed for local inference during development. Subsequently, Groq-based inference was incorporated to enable faster response generation and improved conversational performance.
+
+To enhance the robustness of the application, a multi-level response generation mechanism was implemented. If the primary language model was unavailable, the system automatically switched to an Ollama-based inference engine.
+
+\subsection{Development of User Interfaces and Application Framework}
+After validating the functionality of the core processing engine, the next phase involved transforming the prediction framework into a complete software application that could be accessed through multiple interfaces.
+
+\subsection{Web-Based Dashboard}
+A web-based dashboard was developed to provide an intuitive interface for interacting with the WeatherGPT system. A lightweight RESTful API was implemented using Python-based web technologies to expose endpoints responsible for chatbot interaction and weather prediction services.
+
+The frontend was developed as a Single-Page Application (SPA) using HTML, CSS, and JavaScript. The dashboard enabled users to interact with the chatbot through a conversational interface while simultaneously displaying system information and weather prediction results. Interactive visualizations were incorporated to present forecasted weather trends graphically, thereby improving the interpretability of prediction outputs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_18_img_1_X7.png}
+    \caption{Vite + React Dashboard Frontend Screenshot}
+    \label{fig:dashboard_screenshot}
+\end{figure}
+
+\subsection{Command-Line Interface}
+In addition to the graphical web interface, a command-line application was developed to facilitate direct interaction with the WeatherGPT framework from the terminal. This interface proved particularly useful during system testing, debugging, and rapid experimentation.
+
+To simplify execution across different development environments, an automated environment detection mechanism was implemented. The application verified whether the correct Python virtual environment was active and, if necessary, automatically relaunched itself within the configured virtual environment. This approach minimized dependency-related execution errors and improved the portability of the application.
+
+\subsection{Model Context Protocol (MCP) Integration}
+To facilitate seamless integration between the AI-powered chatbot and the AIoT-based weather monitoring station, the Model Context Protocol (MCP) was adopted as the communication framework.
+
+MCP provides a standardized protocol that enables AI applications to securely interact with external tools, services, and data sources through a unified interface. By eliminating the need for custom integration logic, MCP simplifies communication between the chatbot and the weather station while improving interoperability and maintainability.
+
+In the proposed system, an MCP-compatible server was developed using the FastMCP framework to expose the weather station's functionalities as callable tools. Through this server, the chatbot can communicate directly with the weather station to access real-time sensor observations, retrieve historical weather records, and invoke weather-related services using standardized MCP requests. The MCP server acts as an intermediary between the chatbot and the weather station, managing request routing, tool execution, and response delivery in a structured and consistent manner.
+
+The adoption of MCP enhances the modularity, scalability, and extensibility of the overall architecture by providing a common communication layer that decouples the chatbot from the underlying weather station implementation. This approach allows additional AI applications, intelligent agents, or external development environments supporting MCP to integrate with the weather station without requiring modifications to the existing system. Consequently, the weather station can be utilized as a reusable AI service, enabling efficient access to environmental data and weather-related functionalities through a standardized protocol while supporting future expansion of the system.
+
+\subsection{Cloud Deployment Architecture}
+The final stage of development focused on deployment and accessibility. The complete application, including the backend server, REST API, prediction engine, chatbot, and frontend dashboard, was configured for cloud deployment.
+
+Deployment configuration files were created to enable seamless hosting on cloud platforms such as Render. This deployment architecture ensured that the WeatherGPT framework could be executed as an online application without requiring extensive manual configuration. The modular deployment strategy also facilitates future scalability, maintenance, and integration with real-time weather data sources.
+
+\subsection{System Integration}
+Upon completion of all development phases, the individual components—including the NLP pipeline, historical weather database, LSTM prediction model, conversational language model, retrieval engine, web dashboard, command-line interface, and MCP server—were integrated into a unified WeatherGPT framework.
+
+The resulting system provides end-to-end functionality by accepting natural language weather queries, retrieving relevant historical information, generating AI-based weather forecasts, and presenting results through multiple user interfaces. This integrated architecture demonstrates the practical application of deep learning, natural language processing, and modern software engineering principles in the development of an intelligent weather forecasting assistant.
+
+\subsection{Training of the Chatbot for Weather Prediction}
+The weather prediction component of WeatherGPT was implemented using a Stacked Long Short-Term Memory (LSTM) neural network developed in the PyTorch deep learning framework. The model was designed to capture temporal dependencies present in sequential weather observations and generate accurate multivariate weather forecasts based on historical weather data.
+
+During the development and validation of the chatbot, mock weather readings were used to train, validate, and verify the prediction pipeline. These simulated datasets enabled testing of the chatbot's forecasting functionality and ensured that it could correctly process user queries and generate weather predictions before deployment with live weather station data. By learning patterns from historical weather observations, the model is capable of predicting multiple meteorological parameters for a forecasting horizon of up to 30 days. Multiple training iterations were performed to optimize the network parameters and improve the overall predictive performance. Upon completion of training, the optimized model was integrated into the WeatherGPT framework, enabling real-time weather forecasting during chatbot interactions.
+
+\subsubsection{Model Architecture}
+The forecasting model is based on a Stacked LSTM architecture consisting of two LSTM layers, each with 64 hidden units. The stacked configuration enables the network to learn both short-term and long-term temporal relationships within historical weather sequences. A selective skip connection is incorporated to preserve the most recent values of relatively stable weather variables, thereby improving prediction stability. Furthermore, a dropout rate of 0.2 is applied between the LSTM layers to reduce overfitting and enhance the model's generalization capability.
+
+\subsubsection{Training Hyperparameters}
+The model was trained using a predefined set of hyperparameters to achieve efficient convergence and reliable forecasting performance. A lag window of five days was used, allowing the network to learn from the weather observations recorded during the previous five days. The training process was carried out for a maximum of 200 epochs using a batch size of 64. Model parameters were optimized using the Adam optimizer with a learning rate of 0.003, enabling stable and efficient learning throughout the training process.
+
+\subsubsection{Data Preparation}
+Prior to training, the historical weather dataset underwent preprocessing to improve the learning capability of the model. Feature engineering techniques, including cyclical encoding of time-based variables and rolling statistical features, were applied to capture seasonal patterns and recent weather trends. The processed data was then normalized using StandardScaler, with separate scalers maintained for the input features and target variables. Finally, the dataset was divided sequentially into 90\% training data and 10\% validation data, preserving the chronological order of observations for realistic model evaluation.
+
+\subsubsection{Loss Function}
+To optimize multivariate weather prediction, the model employed a custom Weighted L1 Loss (Weighted Mean Absolute Error) function. Since multiple weather variables are predicted simultaneously, different static weights were assigned to individual output parameters according to their importance. Higher weights were allocated to critical variables such as temperature and humidity, enabling the model to prioritize accurate prediction of the most significant weather metrics.
+
+\subsubsection{Training Process}
+The training process involved repeatedly feeding sequential weather observations into the stacked LSTM network while minimizing the weighted prediction error. During each epoch, model parameters were updated using the Adam optimization algorithm.
+
+To prevent overfitting, an Early Stopping mechanism with a patience of 25 epochs was incorporated. If the validation loss failed to improve for 25 consecutive epochs, the training process terminated automatically, and the model restored the weights corresponding to the best-performing validation epoch.
+
+\begin{table}[H]
+    \centering
+    \caption{MAE Readings of Mock Data Used}
+    \label{fig:mae_table}
+    \vspace{0.2cm}
+    \includegraphics[width=0.85\textwidth]{images/page_22_img_1_X7.png}
+\end{table}
+
+This strategy ensured that the final model achieved optimal prediction performance without unnecessary training.
+
+The system also supports background retraining, allowing the prediction model to be updated with newly available weather observations without interrupting chatbot operation. By default, background retraining is performed for 150 epochs, ensuring that the forecasting model remains adaptive to newly collected environmental data.
+
+\subsection{Features of the LSTM Trained Bot}
+
+\subsubsection{Historical Weather Information Retrieval}
+WeatherGPT enables users to retrieve historical weather information using natural language queries. The chatbot accesses a locally stored weather dataset and provides observations for parameters such as temperature, humidity, atmospheric pressure, precipitation, wind speed, wind direction, cloud cover, visibility, and other environmental variables. Users can request weather information for specific dates or custom date ranges without requiring knowledge of database queries or file structures.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_23_img_1_X5.png}
+    \caption{Historical Weather Information Retrieval Screenshot}
+    \label{fig:historical_retrieval}
+\end{figure}
+
+\subsubsection{Statistical Weather Analysis}
+The chatbot supports statistical analysis of historical weather data by computing descriptive measures, including average, minimum, and maximum values for selected weather parameters. Statistical summaries can be generated for individual days, months, or user-defined periods, enabling efficient analysis of weather trends and seasonal variations through simple conversational interactions.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_24_img_1_X5.png}
+    \caption{Statistical Analysis Output Panel}
+    \label{fig:statistical_analysis_1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_24_img_2_X7.png}
+    \caption{Statistical Analysis Secondary Chart}
+    \label{fig:statistical_analysis_2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_24_img_3_X10.png}
+    \caption{Statistical Analysis Table Details}
+    \label{fig:statistical_analysis_3}
+\end{figure}
+
+\subsubsection{Multi-Date Weather Comparison}
+WeatherGPT provides comparative analysis of weather conditions across multiple dates. Users can compare environmental parameters recorded on different days to identify variations in atmospheric conditions, making the system useful for weather trend analysis and environmental studies.
+
+\subsubsection{LSTM-Based Weather Forecasting}
+To provide predictive weather intelligence, the chatbot incorporates a stacked Long Short-Term Memory (LSTM) neural network developed using the PyTorch framework. The forecasting model utilizes historical weather observations to predict future weather conditions for up to 30 days. Forecast results are presented through natural language responses, allowing users to obtain short-term weather predictions without directly interacting with the underlying machine learning model.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_25_img_1_X5.png}
+    \caption{LSTM Forecasting Module Output}
+    \label{fig:lstm_forecasting_1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_25_img_2_X7.png}
+    \caption{LSTM Forecasting Predictions Graph}
+    \label{fig:lstm_forecasting_2}
+\end{figure}
+
+\subsubsection{Natural Language Conversational Interface}
+The chatbot employs a Natural Language Processing (NLP) pipeline consisting of query parsing, intent classification, entity extraction, and decision-making modules. This enables users to communicate using everyday language rather than predefined commands, providing a more intuitive and user-friendly method for accessing weather information.
+
+\subsubsection{Interactive Web-Based Dashboard}
+In addition to the command-line interface, WeatherGPT provides a web-based dashboard for visualizing weather information. The dashboard presents historical observations, forecast results, interactive charts, and dataset health statistics, enabling users to explore environmental data through a graphical interface.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_26_img_1_X5.png}
+    \caption{Interactive Charts on Web Dashboard}
+    \label{fig:dashboard_charts_1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/page_26_img_2_X7.png}
+    \caption{Dataset Health Statistics on Web Dashboard}
+    \label{fig:dashboard_charts_2}
+\end{figure}
+
+\subsubsection{Offline Operation}
+The chatbot is designed to operate in offline mode as well, using locally stored datasets and locally hosted software components. This capability makes the system suitable for deployment on edge computing platforms such as the Raspberry Pi, where reliable internet connectivity may not always be available.
+
+\subsubsection{Automatic Fallback Response Generation}
+To improve system reliability, WeatherGPT incorporates an automatic fallback mechanism that activates whenever the locally hosted Large Language Model (LLM) is unavailable. In such situations, the chatbot generates structured rule-based responses, ensuring uninterrupted operation and consistent user interaction without compromising the availability of weather services.
+
+\subsubsection{Modular and Scalable Architecture}
+WeatherGPT follows a modular software architecture in which the NLP pipeline, decision engine, forecasting module, response generation module, web interface, and MCP server are implemented as independent functional components. This modular design simplifies maintenance, facilitates future enhancements, and enables seamless integration of additional weather services, machine learning models, or AI applications with minimal modifications to the existing framework.
+
+\subsection{Design of New Chatbot}
+The current implementation of WeatherGPT employs a stacked Long Short-Term Memory (LSTM) neural network for short-term weather forecasting. While the developed model demonstrates satisfactory performance in predicting weather conditions from historical temporal observations, it primarily captures sequential dependencies and treats each weather parameter independently. Consequently, the existing approach is not well suited for simultaneously modeling the complex relationships among multiple sensing nodes and heterogeneous environmental parameters present in an AIoT-based multi-modal weather monitoring station.
+
+To address these limitations, an investigation was conducted to identify more advanced machine learning architectures capable of effectively handling multi-node and multi-sensor weather data. Based on this study, Graph Neural Networks (GNNs) were identified as a promising alternative due to their ability to represent complex spatial and relational dependencies using graph-based data structures. In a GNN framework, each sensing node can be represented as a graph node, while the interactions between sensors, environmental parameters, or geographically distributed weather stations can be modeled as graph edges. This enables the learning algorithm to capture both temporal patterns and spatial correlations that are difficult to represent using conventional LSTM models.
+
+Currently, research and development efforts are focused on integrating a GNN-based forecasting model into the WeatherGPT framework. The objective is to develop a scalable prediction engine capable of simultaneously processing observations from multiple sensors and sensing nodes while improving forecasting accuracy and generalization. The proposed GNN-based approach is expected to enhance the capability of the AIoT weather monitoring system by enabling intelligent spatio-temporal weather prediction, efficient multi-node environmental analysis, and improved support for large-scale distributed weather monitoring applications.
+
+\section{Implemented WeatherBOT Enhancements}
+
+\subsection{System Architecture and GNN Node Forecasting}
+To address the limitations of conventional sequential LSTM networks, which predict meteorological parameters independently and neglect the spatial correlations between adjacent sensor nodes, the weatherBOT platform was upgraded to integrate a Graph Neural Network (GNN). Graph Neural Networks are uniquely suited for AIoT weather stations since they represent the spatial layout of multiple distributed sensor nodes as a graph structure. 
+
+In the implemented architecture, each localized sensor group is modeled as a node $v \in V$ with a feature vector $\mathbf{x}_v = [\text{temperature}, \text{wind\_speed}, \text{humidity}]$. The spatial relationships and data-flow links between nodes are represented as edges $e \in E$, forming a bidirectional chain graph. The core prediction engine leverages a 3-layer Graph Convolutional Network (GCN) built using PyTorch Geometric:
+\begin{equation}
+    \mathbf{h}_v^{(l+1)} = \sigma \left( \mathbf{W}^{(l)} \sum_{u \in \mathcal{N}(v) \cup \{v\}} \frac{1}{\sqrt{\tilde{d}_v \tilde{d}_u}} \mathbf{h}_u^{(l)} \right)
+\end{equation}
+where $\mathcal{N}(v)$ represents the neighboring nodes, $\mathbf{W}^{(l)}$ is the layer weight matrix, $\sigma$ is the ReLU activation function, and $\tilde{d}$ denotes node degrees. The GNN service processes multi-node telemetry in real-time, executing a forward pass to forecast spatial weather trends across the entire node cluster.
+
+Simultaneously, the backend was decoupled using FastAPI to facilitate high-performance RESTful communication, and a SQLite database was integrated via SQLAlchemy for persistent storage. The frontend was rebuilt as a dynamic React/Vite SPA. To ensure secure public accessibility, a Cloudflare Quick Tunnel daemon automatically proxies the local server, exposing the interface securely to the internet.
+
+\subsection{Key Features}
+The upgraded WeatherBOT system incorporates several advanced functionalities:
+\begin{itemize}
+    \item \textbf{Conversational UI:} A modern chat interface allowing users to query weather patterns and receive context-aware natural language responses powered by a local Large Language Model (Llama 3.1 8B via Ollama).
+    \item \textbf{Dynamic Data Management:} A dedicated Dataset Management dashboard enabling drag-and-drop CSV uploads, alongside historical quality profiling and statistical overviews.
+    \item \textbf{Interactive Visualizations:} Automated generation of Plotly-based trend graphs directly within the chat window when analytical queries are processed.
+    \item \textbf{Session History Control:} Persistent archiving of past conversations, providing users with the ability to review, select, and manage their historical chat interactions.
+\end{itemize}
+
+\subsection{Bot Performance and Inference Metrics}
+Operating the chatbot locally demands rigorous resource optimization to minimize prompt evaluation and token generation times. A multi-pronged optimization strategy was implemented to improve the chatbot's performance metrics:
+\begin{itemize}
+    \item \textbf{LLM Parameter Tuning:} Capped the token prediction length (\texttt{num\_predict}) to 120, restricted the attention context window (\texttt{num\_ctx}) to 1024 tokens, narrowed search parameters (\texttt{top\_k = 20}, \texttt{top\_p = 0.4}), and pinned computation to 4 threads. This tuning allows the Llama 3.1 8B model to evaluate prompts and generate complete responses with an average inference latency of just \textbf{2.5 to 3.5 seconds} on the local hardware.
+    \item \textbf{Context Pruning:} Reduced the historical message buffer passed to the LLM to the last 6 messages (3 conversation turns), keeping the prompt length short and minimizing redundant token processing.
+    \item \textbf{Latency UI Tracking:} The backend API captures the precise evaluation and generation metrics for every request. This exact model inference time is returned to the client and rendered dynamically next to a lightning bolt indicator (e.g., \texttt{2.45s}) on the chat bubbles, providing real-time visibility into the bot's computational performance.
+\end{itemize}
+
+\subsection{GUI Walkthrough and Verification}
+The integrated features were verified by running the complete WeatherBOT application. The following screenshots capture the operational web interface across its primary functional modules.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_dashboard.png}
+    \caption{Interactive Weather Dashboard displaying active sensor readings and spatial node graphs.}
+    \label{fig:new_bot_dashboard}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_datasets.png}
+    \caption{Raw Dataset Management Page demonstrating CSV upload capabilities and dataset health statistics.}
+    \label{fig:new_bot_datasets}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_chat.png}
+    \caption{Conversational Chat Window actively responding to user queries with real-time inference latency indicators.}
+    \label{fig:new_bot_chat}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_history.png}
+    \caption{Conversation History Panel for managing and reviewing archived interactions.}
+    \label{fig:new_bot_history}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_settings.png}
+    \caption{Settings Configuration panel showing active application modes and system controls.}
+    \label{fig:new_bot_settings}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_working.png}
+    \caption{Active Operational View: The WeatherBOT actively evaluating a natural language weather query and generating a real-time predictive response using local inference.}
+    \label{fig:new_bot_working}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/bot_accuracy_graph.png}
+    \caption{Model Accuracy Graph: Comparison of actual versus predicted temperature values generated by the advanced GNN prediction engine, demonstrating high forecasting reliability.}
+    \label{fig:new_bot_accuracy}
+\end{figure}
+
+\section{Conclusion}
+
+This work successfully demonstrated the integration of Artificial Intelligence, Internet of Things (IoT), edge computing, and conversational intelligence into a unified weather monitoring and forecasting framework. The developed system extends the capabilities of a conventional weather station by enabling intelligent weather data analysis, natural language interaction, and short-term weather prediction through a modular and scalable architecture.
+
+The proposed WeatherGPT framework combines historical weather data retrieval, statistical analysis, LSTM-based forecasting, and offline conversational AI within a single platform. Furthermore, the system was enhanced with modern software components, including web-based interfaces, REST APIs, Model Context Protocol (MCP) support, and an improved WeatherBOT architecture that explores Graph Neural Networks (GNNs) for multi-node weather forecasting and intelligent environmental monitoring.
+
+Overall, the developed framework provides a robust foundation for next-generation AIoT-based weather monitoring systems by integrating sensing, machine learning, and intelligent decision support into a single platform. Its modular design, offline capabilities, and scalability make it suitable for further research and future enhancements in intelligent environmental monitoring and weather forecasting applications.
+
+\section{References}
+\begin{enumerate}
+    \item ``Design of Intelligent Automatic Weather Station based on Internet of Things,'' IEEE Xplore. Available: \url{https://ieeexplore.ieee.org/abstract/document/9679614}
+    \item ``Generative Adversarial Network Based Weather Prediction Using Optimization Enabled Deep LSTM Model,'' IEEE Xplore. Available: \url{https://ieeexplore.ieee.org/document/11135877}
+    \item ``Real-Time AIoT-Driven Weather Forecasting on the Edge for Off-Grid Settings,'' ResearchGate. Available: \url{https://www.researchgate.net/publication/405292370_Real-Time_AIoT-Driven_Weather_Forecasting_on_the_Edge_for_Off-Grid_Settings}
+    \item ``Hybrid Model of GNN and LSTM to Improve the Accuracy of MSME Product Design Prediction on User Behavior,'' IEEE Xplore. Available: \url{https://ieeexplore.ieee.org/document/11469975}
+    \item ``Developing a User-Friendly Conversational AI Assistant for University Using Ollama and LLama3,'' IEEE Xplore. Available: \url{https://ieeexplore.ieee.org/document/11011878}
+    \item ``everWeather: A Low-Cost and Self-Powered AIoT Weather Forecasting Station for Remote Areas,'' Springer Link. Available: \url{https://link.springer.com/chapter/10.1007/978-3-031-46902-2_8}
+    \item ``Artificial Intelligence and Energy Efficiency Revolution in Electric Consumption Management,'' IEEE Xplore. Available: \url{https://ieeexplore.ieee.org/document/10619842}
+\end{enumerate}
+
+\end{document}
