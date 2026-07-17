@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: '/api',
 });
 
 export const setAuthToken = (token: string) => {
@@ -24,6 +24,7 @@ export const deleteDataset = async (datasetId: number) => (await api.delete(`/da
 export const createSession = async (title: string) => (await api.post('/chat/sessions', { title })).data;
 export const getSessions = async () => (await api.get('/chat/sessions')).data;
 export const deleteSession = async (sessionId: string) => (await api.delete(`/chat/sessions/${sessionId}`)).data;
+export const deleteAllSessions = async () => (await api.delete(`/chat/sessions`)).data;
 export const sendMessage = async (sessionId: string, content: string, isOnline: boolean, systemMode: string = 'Prime') =>
   (await api.post(`/chat/sessions/${sessionId}/message`, { role: 'user', content, is_online: isOnline, system_mode: systemMode })).data;
 export const getMessages = async (sessionId: string) => (await api.get(`/chat/sessions/${sessionId}/messages`)).data;

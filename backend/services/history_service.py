@@ -65,6 +65,15 @@ class HistoryService:
         return True
 
     @staticmethod
+    def delete_all_sessions(db: Session) -> int:
+        count = db.query(models.ConversationSession).count()
+        db.query(models.Message).delete()
+        db.query(models.ConversationSession).delete()
+        db.commit()
+        logger.info(f"Deleted all {count} sessions and their messages.")
+        return count
+
+    @staticmethod
     def get_stats(db: Session) -> Dict[str, Any]:
         total_sessions = db.query(models.ConversationSession).count()
         total_messages = db.query(models.Message).count()

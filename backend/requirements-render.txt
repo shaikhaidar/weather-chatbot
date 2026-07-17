@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+pandas
+scikit-learn
+numpy
+python-multipart
+xgboost
+requests
+python-jose[cryptography]
+passlib[bcrypt]
+mcp
+pyserial
+paho-mqtt
+scipy

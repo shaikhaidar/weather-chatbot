@@ -100,39 +100,7 @@ const Settings = ({ systemMode, setSystemMode }: { systemMode: string; setSystem
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* System Mode */}
-        <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-500" />
-            System Mode
-          </h3>
-          <p className="text-sm text-gray-500">Select how the AI should fuse data streams for inference.</p>
-          <div className="space-y-3">
-            {[
-              { id: 'Historical Data Mode', desc: 'Ignore live edge stations. Focus entirely on CSV uploaded datasets.' },
-              { id: 'Live Station Mode', desc: 'Ignore historical CSV data. Use GNN to map spatial edge sensor telemetry.' },
-              { id: 'Prime', desc: 'Ultimate Hybrid. Fuse historical CSV and live Edge GNN inputs.' },
-            ].map(mode => (
-              <label
-                key={mode.id}
-                className={`flex items-start p-4 border rounded-lg cursor-pointer transition-colors ${systemMode === mode.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}`}
-              >
-                <input
-                  type="radio"
-                  name="system_mode"
-                  value={mode.id}
-                  checked={systemMode === mode.id}
-                  onChange={e => setSystemMode(e.target.value)}
-                  className="mt-1 mr-3 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <h4 className="font-medium text-gray-900">{mode.id === 'Prime' ? 'Prime Mode (Default)' : mode.id}</h4>
-                  <p className="text-sm text-gray-500 mt-1">{mode.desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
+
 
         {/* IoT Status */}
         <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">

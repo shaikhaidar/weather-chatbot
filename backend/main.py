@@ -26,17 +26,10 @@ app = FastAPI(
     description="Edge AI Weather Intelligence Platform — Full MCP Architecture",
 )
 
-# Allow CORS for local development (supports flexible Vite dev server ports)
+# Allow CORS for local development & network access (supports flexible IP/port hosts)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-    ],
+    allow_origin_regex="https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

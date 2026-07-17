@@ -18,7 +18,7 @@ function App() {
 
   useEffect(() => {
     // Check local hardware IoT status via backend endpoint if available
-    fetch('http://localhost:8000/api/predictions/iot')
+    fetch('/api/predictions/iot')
       .then(res => res.json())
       .then(data => {
         if (data && data.source !== 'simulator' && data.connected) {
@@ -45,9 +45,6 @@ function App() {
   };
 
   const handleSidebarClick = (view: string) => {
-    if (view === 'Chat') {
-      setSelectedSessionId(null); // start new chat if clicking 'Chat' tab
-    }
     setCurrentView(view);
   };
 
@@ -76,7 +73,13 @@ function App() {
 
         {/* Content Body */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          {currentView === 'Chat' && <ChatWindow sessionIdProp={selectedSessionId} systemMode={systemMode} />}
+          {currentView === 'Chat' && (
+            <ChatWindow 
+              sessionIdProp={selectedSessionId} 
+              systemMode={systemMode} 
+              onSessionInit={(id) => setSelectedSessionId(id)}
+            />
+          )}
           {currentView === 'Raw Dataset' && <RawDataset />}
           {currentView === 'Conversation History' && <History onSelectSession={handleSelectSession} />}
           {currentView === 'Settings' && <Settings systemMode={systemMode} setSystemMode={setSystemMode} />}

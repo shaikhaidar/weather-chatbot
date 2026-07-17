@@ -29,6 +29,12 @@ def delete_session(session_id: str, db: Session = Depends(get_db)):
     return {"status": "deleted", "session_id": session_id}
 
 
+@router.delete("/sessions")
+def delete_all_sessions(db: Session = Depends(get_db)):
+    count = HistoryService.delete_all_sessions(db)
+    return {"status": "deleted_all", "count": count}
+
+
 @router.post("/sessions/{session_id}/message")
 def send_message(session_id: str, message: schemas.MessageCreate, db: Session = Depends(get_db)):
     session = db.query(models.ConversationSession).filter(models.ConversationSession.id == session_id).first()
