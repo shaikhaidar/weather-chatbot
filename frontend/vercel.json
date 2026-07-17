@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://weatherbot-backend.koyeb.app/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
