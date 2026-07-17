@@ -174,7 +174,6 @@ class ConversationService:
             "Sensors & Interfaces:\n"
             "- BME280: Temperature (°C), Relative Humidity (%), Atmospheric Pressure (hPa). Interface: I2C.\n"
             "- SPS30: Air Quality PM1.0, PM2.5, PM4.0, PM10 (µg/m³). Interface: UART.\n"
-            "- BH1750: Ambient Light Intensity / Lux. Interface: I2C.\n"
             "- YL-83: Rain Presence (0 = No Rain, 1 = Rain). Interface: GPIO.\n"
             "- Tipping Bucket Rain Gauge: Rainfall Amount (mm). Interface: GPIO Interrupt (0.2794 mm/tip).\n"
             "- Anemometer: Wind Speed (m/s). Interface: GPIO Interrupt cup-rotation frequency.\n"
@@ -194,7 +193,7 @@ class ConversationService:
         if include_hw:
             system_prompt += hw_spec
         else:
-            system_prompt += "Hardware Platform: Raspberry Pi 4 edge node connecting local BME280, SPS30, BH1750 and custom wind/rain hardware sensors. Storage is backed by InfluxDB and Grafana.\n"
+            system_prompt += "Hardware Platform: Raspberry Pi 4 edge node connecting local BME280, SPS30 and custom wind/rain hardware sensors. Storage is backed by InfluxDB and Grafana.\n"
         
         system_prompt += "\n# CONTEXT & REAL-TIME DATA\n"
         if intent == IntentType.GREETING:

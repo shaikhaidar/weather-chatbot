@@ -45,7 +45,6 @@ _SENSOR_ENTITIES = {
     "pressure": ["pressure", "baro", "hpa"],
     "wind_speed": ["wind", "speed", "breeze"],
     "rainfall": ["rain", "rainfall", "precipitation"],
-    "light_intensity": ["light", "lux", "solar", "irradiance"],
 }
 
 _TIME_PATTERNS = [

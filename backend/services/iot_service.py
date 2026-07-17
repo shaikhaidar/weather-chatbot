@@ -42,8 +42,6 @@ _sensor_state: Dict[str, Any] = {
     "rainfall": 0.0,             # Tipping Bucket (mm)
     "wind_speed": 5.0,           # Anemometer (m/s)
     "wind_direction": "N",       # Wind Vane (Cardinal direction)
-    "light_intensity": 800.0,    # BH1750 (Lux)
-    "lux": 800.0,                # BH1750 (Lux - Alias)
     "timestamp": datetime.utcnow().isoformat(),
     "source": "simulator",      # "serial" | "mqtt" | "simulator"
     "connected": False,
@@ -79,7 +77,6 @@ class WeatherSimulator:
         pressure = round(1013.0 + 3.0 * math.sin(t / 120.0) + random.gauss(0, 0.5 * n), 2)
         wind_speed = round(max(0, abs(5.0 + 3.0 * math.sin(t / 30.0) + random.gauss(0, 0.5 * n))), 2)
         rainfall = round(max(0.0, random.gauss(0, 0.1 * n) if random.random() > 0.85 else 0.0), 3)
-        light = round(max(0, 750.0 + 250.0 * math.sin(t / 50.0) + random.gauss(0, 20.0 * n)), 1)
         
         # New sensor metrics from the RPi project specs
         # Air Quality (SPS30) PM concentration
@@ -103,8 +100,6 @@ class WeatherSimulator:
             "pressure": pressure,
             "wind_speed": wind_speed,
             "rainfall": rainfall,
-            "light_intensity": light,
-            "lux": light,
             "pm1_0": pm1_0,
             "pm2_5": pm2_5,
             "pm4_0": pm4_0,
@@ -123,7 +118,7 @@ class SerialWeatherReader:
     Reads JSON lines from a Raspberry Pi over USB serial (e.g. /dev/ttyUSB0 or COM3).
     Expected payload format (sent by RPi):
         {"temperature": 23.1, "humidity": 61.2, "pressure": 1012.8,
-         "wind_speed": 4.3, "rainfall": 0.0, "light_intensity": 720.0}
+         "wind_speed": 4.3, "rainfall": 0.0}
     """
     _serial: Optional[Any] = None
     _thread: Optional[threading.Thread] = None
@@ -245,8 +240,6 @@ class IoTService:
             "pressure": 0.0,
             "wind_speed": 0.0,
             "rainfall": 0.0,
-            "light_intensity": 0.0,
-            "lux": 0.0,
             "pm1_0": 0.0,
             "pm2_5": 0.0,
             "pm4_0": 0.0,
@@ -274,7 +267,6 @@ class IoTService:
                 "pressure": round(base["pressure"] + random.gauss(0, 0.2), 2),
                 "wind_speed": round(max(0, base["wind_speed"] + random.gauss(0, 0.3)), 2),
                 "pm2_5": round(max(0.1, base["pm2_5"] + random.gauss(0, 1.0)), 2),
-                "light_intensity": round(max(0, base["light_intensity"] + random.gauss(0, 10.0)), 1),
             }
             nodes.append(node)
         return nodes

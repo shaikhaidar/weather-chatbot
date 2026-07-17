@@ -44,8 +44,7 @@ class NLGService:
             f"- 💧 Humidity: **{reading.get('humidity', '?')}%**\n"
             f"- 📊 Pressure: **{reading.get('pressure', '?')} hPa**\n"
             f"- 💨 Wind Speed: **{reading.get('wind_speed', '?')} m/s**\n"
-            f"- 🌧️ Rainfall: **{reading.get('rainfall', '?')} mm**\n"
-            f"- ☀️ Light Intensity: **{reading.get('light_intensity', '?')} lux**"
+            f"- 🌧️ Rainfall: **{reading.get('rainfall', '?')} mm**"
         )
 
     @staticmethod
