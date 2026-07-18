@@ -46,13 +46,13 @@ def send_message(session_id: str, message: schemas.MessageCreate, db: Session = 
 
     # Generate response via conversation service
     response = ConversationService.generate_response(
-        db, session_id, message.content, message.is_online, message.system_mode
+        db, session_id, message.content, message.is_online
     )
 
     # Enrich response with recommendations and XAI via NLP intent
     nlp_result = NLPEngine.process(message.content)
     intent = nlp_result.get("intent", "GENERAL_CHAT")
-    recommendations = RecommendationEngine.get_recommendations(intent, message.system_mode)
+    recommendations = RecommendationEngine.get_recommendations(intent)
 
     response["recommendations"] = recommendations
     response["intent"] = intent

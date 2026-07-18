@@ -103,14 +103,13 @@ def analyze_text_intent(message: str) -> str:
 
 
 @mcp.tool()
-def get_recommendations(intent: str = "GENERAL_CHAT", system_mode: str = "prime") -> str:
+def get_recommendations(intent: str = "GENERAL_CHAT") -> str:
     """
-    Get follow-up query recommendations based on the current intent and system mode.
+    Get follow-up query recommendations based on the current intent.
     Args:
         intent: Current NLP intent (GREETING, DATA_QUERY, PREDICTION_REQUEST, etc.)
-        system_mode: Current mode (prime, historical data mode, live station mode)
     """
-    recs = RecommendationEngine.get_recommendations(intent, system_mode)
+    recs = RecommendationEngine.get_recommendations(intent)
     return NLGService.describe_recommendations(recs)
 
 

@@ -41,22 +41,20 @@ class ConversationService:
         return db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.timestamp).all()
 
     @staticmethod
-    def generate_response(db: Session, session_id: str, user_message: str, is_online: bool = False, system_mode: str = "Prime") -> dict:
+    def generate_response(db: Session, session_id: str, user_message: str, is_online: bool = False) -> dict:
         """
         Calls local Llama 3.1 8b via Ollama API.
         Strictly enforces that the bot only knows about local weather station data and ML predictions.
-        Uses GNN and BiLSTM models for accurate environmental modeling.
+        Uses GNN models for accurate environmental modeling.
         """
         # Save user message
         ConversationService.add_message(db, session_id, role="user", content=user_message)
         
         # 1. Determine Intent via Decision Engine
         intent = DecisionEngine.determine_intent(user_message)
-        logger.info(f"Processing message in '{system_mode}' | Intent: {intent} | Message: '{user_message}'")
+        logger.info(f"Processing message | Intent: {intent} | Message: '{user_message}'")
         
-        mode = system_mode.lower()
-            
-        # Context building based on System Mode
+        # Context building
         live_context = ""
         gnn_result = ""
         ml_context = ""
@@ -105,7 +103,40 @@ class ConversationService:
                                     
                             if day_match and month_idx:
                                 day_num = int(day_match.group(1))
-                                matched_rows = active_df[(active_df['parsed_date'].dt.day == day_num) & (active_df['parsed_date'].dt.month == month_idx)]
+                                
+                                import datetime
+                                hour_val = 12
+                                minute_val = 0
+                                
+                                time_match = re.search(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(\d{1,2}):(\d{2})\b', msg_lower)
+                                if time_match:
+                                    if time_match.group(1): # Matches AM/PM format
+                                        h = int(time_match.group(1))
+                                        m = int(time_match.group(2)) if time_match.group(2) else 0
+                                        ampm = time_match.group(3)
+                                        if ampm == 'pm' and h < 12:
+                                            h += 12
+                                        elif ampm == 'am' and h == 12:
+                                            h = 0
+                                        hour_val = h
+                                        minute_val = m
+                                    elif time_match.group(4): # Matches 24-hour format like 14:30
+                                        hour_val = int(time_match.group(4))
+                                        minute_val = int(time_match.group(5))
+                                
+                                try:
+                                    target_date = datetime.datetime(2025, month_idx, day_num, hour_val, minute_val)
+                                except ValueError:
+                                    target_date = datetime.datetime(2025, month_idx, day_num, 12, 0)
+                                
+                                matched_rows = active_df[
+                                    (active_df['parsed_date'].dt.day == day_num) & 
+                                    (active_df['parsed_date'].dt.month == month_idx) &
+                                    (active_df['parsed_date'].dt.hour == hour_val)
+                                ]
+                                
+                                if matched_rows.empty:
+                                    matched_rows = active_df[(active_df['parsed_date'].dt.day == day_num) & (active_df['parsed_date'].dt.month == month_idx)]
                             
                                 if matched_rows is not None and not matched_rows.empty:
                                     sample = matched_rows.iloc[0].drop(labels=['parsed_date'], errors='ignore').to_dict()
@@ -113,57 +144,52 @@ class ConversationService:
                                 else:
                                     # Future / Target Date Multi-Feature Forecasting Engine
                                     from services.ml_service import MLService
-                                    forecast_res = MLService.predict_weather_for_date(active_df, day_num, month_idx)
+                                    forecast_res = MLService.predict_weather_for_date(active_df, target_date)
                                     if forecast_res.get("status") == "success":
+                                        target_str = forecast_res['target_date']
                                         date_record_context = (
-                                            f"\n[PREDICTED MULTI-FEATURE FORECAST FOR REQUESTED TARGET DATE ({day_num:02d}/{month_idx:02d})]\n"
-                                            f"The ML forecasting model trained on historical data projects the following predicted weather features for target date {day_num:02d}/{month_idx:02d}:\n"
+                                            f"\n[PREDICTED MULTI-FEATURE FORECAST FOR REQUESTED TARGET DATE ({target_str})]\n"
+                                            f"The ML forecasting model trained on historical data projects the following predicted weather features for target date {target_str}:\n"
                                             f"{json.dumps(forecast_res['forecasted_features'], indent=2)}\n"
                                         )
                 except Exception as ex:
                     logger.warning(f"Date lookup error: {ex}")
 
-            # Mode 1: Historical Data Mode (Only CSV/Redacted)
-            # Mode 3: Prime Mode (Both)
-            if mode in ["historical data mode", "prime"]:
-                if active_model:
-                    ds_info = f"Filename: {parent_ds.filename} | Time Span: {parent_ds.time_span} | Total Rows: {parent_ds.total_rows} | Sensors: {', '.join(parent_ds.detected_sensors or [])}" if parent_ds else "N/A"
-                    ml_context = (
-                        f"\n[HISTORICAL CSV MODEL INFO]\n"
-                        f"Active Model Version: {active_model.version}\n"
-                        f"Dataset Context: {ds_info}\n"
-                        f"Model Metrics: RMSE={active_model.rmse:.4f}, R2={active_model.accuracy:.4f}, Training Time={active_model.training_time:.2f}s\n"
-                        f"Feature Importances: {json.dumps(active_model.feature_importances)}\n"
-                        f"{date_record_context}\n"
-                    )
+            if active_model:
+                ds_info = f"Filename: {parent_ds.filename} | Time Span: {parent_ds.time_span} | Total Rows: {parent_ds.total_rows} | Sensors: {', '.join(parent_ds.detected_sensors or [])}" if parent_ds else "N/A"
+                ml_context = (
+                    f"\n[HISTORICAL CSV MODEL INFO]\n"
+                    f"Active Model Version: {active_model.version}\n"
+                    f"Dataset Context: {ds_info}\n"
+                    f"Model Metrics: RMSE={active_model.rmse:.4f}, R2={active_model.accuracy:.4f}, Training Time={active_model.training_time:.2f}s\n"
+                    f"Feature Importances: {json.dumps(active_model.feature_importances)}\n"
+                    f"{date_record_context}\n"
+                )
+            else:
+                if parent_ds:
+                    ml_context = f"\n[HISTORICAL CSV MODEL INFO]\nDataset uploaded: '{parent_ds.filename}' ({parent_ds.total_rows} rows, Time Span: {parent_ds.time_span}). Status: {parent_ds.status}.\n{date_record_context}\n"
                 else:
-                    if parent_ds:
-                        ml_context = f"\n[HISTORICAL CSV MODEL INFO]\nDataset uploaded: '{parent_ds.filename}' ({parent_ds.total_rows} rows, Time Span: {parent_ds.time_span}). Status: {parent_ds.status}.\n{date_record_context}\n"
-                    else:
-                        ml_context = "\n[HISTORICAL CSV MODEL INFO]\nNo historical datasets have been uploaded yet.\n"
+                    ml_context = "\n[HISTORICAL CSV MODEL INFO]\nNo historical datasets have been uploaded yet.\n"
 
-            # Mode 2: Live Station Mode (Only IoT/GNN)
-            # Mode 3: Prime Mode (Both)
-            if mode in ["live station mode", "prime"]:
-                from services.gnn_service import GNNService
-                from services.iot_service import IoTService
+            from services.gnn_service import GNNService
+            from services.iot_service import IoTService
+            
+            # Check actual hardware status
+            hw_connected = IoTService.is_hardware_connected() if hasattr(IoTService, 'is_hardware_connected') else False
+            
+            if hw_connected:
+                readings = IoTService.get_multi_node_readings() if hasattr(IoTService, 'get_multi_node_readings') else []
+                nodes = GNNService.build_nodes_from_iot(readings) if readings else [[24.0, 10.0, 60.0]]
+                edges = GNNService.build_edges(len(nodes))
+                gnn_resp = GNNService.predict(nodes, edges)
                 
-                # Check actual hardware status
-                hw_connected = IoTService.is_hardware_connected() if hasattr(IoTService, 'is_hardware_connected') else False
-                
-                if hw_connected:
-                    readings = IoTService.get_multi_node_readings() if hasattr(IoTService, 'get_multi_node_readings') else []
-                    nodes = GNNService.build_nodes_from_iot(readings) if readings else [[24.0, 10.0, 60.0]]
-                    edges = GNNService.build_edges(len(nodes))
-                    gnn_resp = GNNService.predict(nodes, edges)
-                    
-                    live_context = f"\n[LIVE HARDWARE TELEMETRY - Status: CONNECTED (Serial/MQTT)]\n"
-                    for idx, node in enumerate(nodes):
-                        live_context += f"Node {idx + 1} (Temp/Wind/Hum): {node}\n"
-                    if gnn_resp.get("status") == "success":
-                        gnn_result = f"[GNN SPATIAL PREDICTION (PyTorch GCN)]: Spatial deltas across live nodes: {gnn_resp['spatial_predictions']}.\n"
-                else:
-                    live_context = "\n[LIVE HARDWARE TELEMETRY]\nPhysical Weather Station Nodes: DISCONNECTED. No live sensor board detected on Serial or MQTT ports.\n"
+                live_context = f"\n[LIVE HARDWARE TELEMETRY - Status: CONNECTED (Serial/MQTT)]\n"
+                for idx, node in enumerate(nodes):
+                    live_context += f"Node {idx + 1} (Temp/Wind/Hum): {node}\n"
+                if gnn_resp.get("status") == "success":
+                    gnn_result = f"[GNN SPATIAL PREDICTION (PyTorch GCN)]: Spatial deltas across live nodes: {gnn_resp['spatial_predictions']}.\n"
+            else:
+                live_context = "\n[LIVE HARDWARE TELEMETRY]\nPhysical Weather Station Nodes: DISCONNECTED. No live sensor board detected on Serial or MQTT ports.\n"
             
         # Prepare context from history
         history = ConversationService.get_session_history(db, session_id)
@@ -186,7 +212,7 @@ class ConversationService:
         
         system_prompt = (
             f"# SYSTEM ROLE\n"
-            f"You are weatherBOT, a professional and highly articulate AI Weather Intelligence Assistant operating on an isolated Edge Computer in '{system_mode}'.\n"
+            f"You are weatherBOT, a professional and highly articulate AI Weather Intelligence Assistant operating on an isolated Edge Computer.\n"
             f"Speak with authoritative, scientific clarity, like a meteorologist or advanced climate data scientist. Ensure your tone is professional, precise, objective, and polite. Avoid casual slang or conversational filler.\n\n"
             f"# ENVIRONMENT & HARDWARE CONFIGURATION\n"
         )
@@ -203,13 +229,7 @@ class ConversationService:
         else:
             system_prompt += f"{ml_context}{live_context}{gnn_result}\n"
         
-        system_prompt += "\n# CRITICAL SYSTEM DIRECTIVES\n"
-        if mode == "historical data mode":
-            system_prompt += "- You are in Historical Data Mode. You MUST ignore all live station data and ONLY answer based on the Historical CSV Model Info. Refuse any requests for live predictions.\n"
-        elif mode == "live station mode":
-            system_prompt += "- You are in Live Station Mode. You MUST ignore all historical CSV data and ONLY answer based on the Live Edge Station Data and GNN Spatial Prediction. Refuse any requests for historical CSV analysis.\n"
-        else: # Prime
-            system_prompt += "- You are in Prime Mode. You have access to BOTH Historical CSV data and Live Edge Station Data (GNN). Synthesize this information gracefully.\n"
+        system_prompt += "- You have access to BOTH Historical CSV data and Live Edge Station Data (GNN). Synthesize this information gracefully.\n"
             
         system_prompt += "- You are strictly isolated from the real-world internet. You ONLY have knowledge of the provided context. If the user asks about the weather in cities outside your station network (like 'New York', 'London', etc.), you MUST state that you are an isolated Edge AI and only monitor local station data. NEVER hallucinate real-world internet data.\n"
         system_prompt += "- If an EXACT HISTORICAL CSV DATE RECORD or a PREDICTED MULTI-FEATURE FORECAST is provided in the context above, you MUST answer the user's question using that specific data. Do NOT claim you lack data for that date.\n"
@@ -277,6 +297,6 @@ class ConversationService:
         return {
             "content": saved_msg.content,
             "graphs": saved_msg.graphs,
-            "mode": mode,
+            "mode": "unified",
             "latency": round(inference_time, 2)
         }

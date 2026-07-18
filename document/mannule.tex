@@ -528,8 +528,224 @@ class MLService:
         return {"status": "success", "version": str(uuid.uuid4())[:8], "metrics": {"rmse": 0.02}, "training_time": time.time()-start_time}
 \end{lstlisting}
 
-\subsection{Vite PWA Core Configuration: \texttt{frontend/vite.config.ts}}
-\begin{lstlisting}[language=Java]
+\subsection{Multi-Node IoT Interface: \texttt{backend/services/iot\_service.py}}
+\begin{lstlisting}[language=Python]
+"""
+IoT Service — Raspberry Pi Weather Station Interface (pyserial & MQTT)
+(BH1750 ambient light lux purged completely).
+"""
+import math
+import random
+import time
+import threading
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from utils.logger import logger
+
+try:
+    import serial
+    SERIAL_AVAILABLE = True
+except ImportError:
+    SERIAL_AVAILABLE = False
+
+try:
+    import paho.mqtt.client as mqtt
+    MQTT_AVAILABLE = True
+except ImportError:
+    MQTT_AVAILABLE = False
+
+_sensor_state: Dict[str, Any] = {
+    "temperature": 24.0,         # BME280 (°C)
+    "humidity": 60.0,            # BME280 (%)
+    "pressure": 1013.25,         # BME280 (hPa)
+    "pm1_0": 5.0,                # SPS30 (µg/m³)
+    "pm2_5": 12.0,               # SPS30 (µg/m³)
+    "pm4_0": 18.0,               # SPS30 (µg/m³)
+    "pm10": 25.0,                # SPS30 (µg/m³)
+    "rain_presence": 0,          # YL-83 (0 = No Rain, 1 = Rain)
+    "rainfall": 0.0,             # Tipping Bucket (mm)
+    "wind_speed": 5.0,           # Anemometer (m/s)
+    "wind_direction": "N",       # Wind Vane (Cardinal direction)
+    "timestamp": datetime.utcnow().isoformat(),
+    "source": "simulator",
+    "connected": False,
+}
+
+_lock = threading.Lock()
+
+class IoTService:
+    @staticmethod
+    def is_hardware_connected() -> bool:
+        with _lock:
+            return _sensor_state["connected"]
+
+    @staticmethod
+    def get_reading() -> Dict[str, Any]:
+        with _lock:
+            if _sensor_state["connected"]:
+                return dict(_sensor_state)
+        reading = {
+            "temperature": 0.0, "humidity": 0.0, "pressure": 0.0,
+            "wind_speed": 0.0, "rainfall": 0.0, "pm1_0": 0.0, "pm2_5": 0.0,
+            "pm4_0": 0.0, "pm10": 0.0, "rain_presence": 0, "wind_direction": "N/A",
+            "timestamp": datetime.utcnow().isoformat(), "source": "disconnected", "connected": False,
+        }
+        with _lock:
+            _sensor_state.update(reading)
+        return reading
+\end{lstlisting}
+
+\subsection{Spatial GNN Subsystem: \texttt{backend/services/gnn\_service.py}}
+\begin{lstlisting}[language=Python]
+"""
+GNN Service — Spatial GNN Multi-Node Predictions
+"""
+from typing import Any, Dict, List
+import random
+
+try:
+    import torch
+    import torch.nn.functional as F
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+try:
+    from torch_geometric.nn import GATConv
+    from torch_geometric.data import Data
+    from torch.nn import LayerNorm
+    TORCH_GEOMETRIC_AVAILABLE = True
+except ImportError:
+    TORCH_GEOMETRIC_AVAILABLE = False
+
+class GNNService:
+    @staticmethod
+    def predict(nodes: List[List[float]], edges: List[List[int]]) -> Dict[str, Any]:
+        if not TORCH_AVAILABLE or not TORCH_GEOMETRIC_AVAILABLE:
+            preds = []
+            for node in nodes:
+                temp = node[0] if len(node) > 0 else 24.0
+                wind = node[1] if len(node) > 1 else 10.0
+                delta = 0.05 * temp - 0.02 * wind + random.uniform(-0.2, 0.2)
+                preds.append(round(delta, 4))
+            return {
+                "status": "success",
+                "spatial_predictions": preds,
+                "node_count": len(nodes),
+                "message": "GNN mock predictions (PyTorch GNN not installed)."
+            }
+            
+        try:
+            x = torch.tensor(nodes, dtype=torch.float)
+            edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
+            data = Data(x=x, edge_index=edge_index)
+
+            # ... model inference logic ...
+
+            return {
+                "status": "success",
+                "spatial_predictions": [round(p, 4) for p in preds],
+                "node_count": len(nodes),
+                "message": "GNN spatial pass successful.",
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+\end{lstlisting}
+
+\subsection{MCP SDK Node Server: \texttt{backend/mcp\_server.py}}
+\begin{lstlisting}[language=Python]
+"""
+MCP Server — Standard MCP SDK server exposing weatherBOT tools.
+Exposes weatherBOT tools to any compliant MCP client (e.g. Claude Desktop).
+"""
+from mcp.server.fastmcp import FastMCP
+from services.iot_service import IoTService
+from services.gnn_service import GNNService
+from services.graph_service import GraphService
+from services.nlg_service import NLGService
+from engines.nlp_engine import NLPEngine
+from utils.logger import logger
+import json
+
+mcp = FastMCP("weatherBOT")
+
+@mcp.tool()
+def get_iot_reading() -> str:
+    """Get the current live sensor reading from the weather station (Raspberry Pi)."""
+    reading = IoTService.get_reading()
+    return NLGService.describe_iot_reading(reading)
+
+@mcp.tool()
+def get_iot_status() -> str:
+    """Check the connection status of the IoT weather station."""
+    status = IoTService.get_status()
+    return (
+        f"Weather Station Connection Status:\n"
+        f"- Connected: {status.get('connected')}\n"
+        f"- Source: {status.get('source')}\n"
+        f"- Last timestamp: {status.get('last_reading_at')}"
+    )
+
+if __name__ == "__main__":
+    logger.info("Starting weatherBOT MCP Server...")
+    mcp.run()
+\end{lstlisting}
+
+\subsection{Frontend Shell Entry: \texttt{frontend/src/App.tsx}}
+\begin{lstlisting}[language=JavaScript]
+import { useState, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
+import RawDataset from './components/RawDataset';
+import Settings from './components/Settings';
+import ChatWindow from './components/ChatWindow';
+import History from './components/History';
+import Login from './components/Login';
+import OfflineBanner from './components/OfflineBanner';
+import { setAuthToken } from './api';
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentView, setCurrentView] = useState('Chat');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [systemMode, setSystemMode] = useState('Prime');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isStationConnected, setIsStationConnected] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleLogin = (token: string) => {
+    setAuthToken(token);
+    setIsAuthenticated(true);
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // Application layout rendering...
+  return (
+    <div className="flex h-screen w-full bg-gray-50 text-gray-900 font-sans overflow-hidden">
+      <OfflineBanner isOnline={isOnline} />
+      <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+      {/* Main Content Areas */}
+    </div>
+  );
+}
+
+export default App;
+\end{lstlisting}
+
+\subsection{Vite PWA Service Configuration: \texttt{frontend/vite.config.ts}}
+\begin{lstlisting}[language=JavaScript]
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -539,31 +755,58 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'WeatherBot AI',
         short_name: 'WeatherBot',
+        description: 'AI-powered weather prediction and analysis chatbot',
         theme_color: '#1e1b4b',
         background_color: '#0f0e17',
         display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
         start_url: '/',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' }
-        ]
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /^\/api\/predictions\/iot/,
             handler: 'NetworkFirst',
-            options: { cacheName: 'iot-api-cache' }
-          }
-        ]
+            options: {
+              cacheName: 'iot-api-cache',
+              expiration: { maxEntries: 10, maxAgeSeconds: 300 },
+              networkTimeoutSeconds: 5,
+            },
+          },
+          {
+            urlPattern: /^\/api\/datasets/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'datasets-api-cache',
+              expiration: { maxEntries: 20, maxAgeSeconds: 86400 },
+              networkTimeoutSeconds: 10,
+            },
+          },
+        ],
+      },
+    }),
+  ],
+  server: {
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
       }
-    })
-  ]
+    }
+  }
 })
 \end{lstlisting}
 

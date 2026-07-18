@@ -6,9 +6,9 @@ This manual contains the complete documentation, design choices, operation proce
 
 ## 📖 Table of Contents
 1. [Project Overview](#-project-overview)
-2. [Sensing & Hardware Stack (BH1750/Lux Purged)](#-sensing--hardware-stack)
-3. [Completed Work & System Architecture](#-completed-work--system-architecture)
-4. [System Modes & Execution Flow](#-system-modes--execution-flow)
+2. [What the Bot Can Do & How to Use It](#-what-the-bot-can-do--how-to-use-it)
+3. [Sensing & Hardware Stack (BH1750/Lux Purged)](#-sensing--hardware-stack)
+4. [Completed Work & System Architecture](#-completed-work--system-architecture)
 5. [Infeasible Features & Critical Limitations](#-infeasible-features--critical-limitations)
 6. [Future Improvements](#-future-improvements)
 7. [Getting Started & Operations](#-getting-started--operations)
@@ -25,6 +25,24 @@ By running on a Raspberry Pi 4 edge node, it solves the problem of high cloud-in
 2. **React PWA Frontend (Vite/TypeScript)**: Displaying real-time telemetry, historical analysis, and conversational chat interface with service worker support to load entirely offline.
 3. **ML/DL Inference Engine**: Using a PyTorch-based **TabularGAT** (Graph Attention Network) and a 3-layer GCN for multi-node forecasting.
 4. **Local LLM**: Accessing Ollama (`llama3.2:3b` or `llama3.1:8b`) locally at `127.0.0.1:11434` for natural language response generation.
+
+---
+
+## 🤖 What the Bot Can Do & How to Use It
+
+weatherBOT acts as an intelligent, autonomous meteorologist for your specific local environment. You can interact with it via the conversational chat interface in the frontend web application.
+
+### Key Capabilities:
+*   **Predict Future Weather (Time-Series & Daily):** You can ask the bot for exact forecasts down to the minute (e.g., *"What will the temperature be on December 25th at 3 PM?"*). The bot uses Graph Neural Networks (GNN) equipped with cyclical time-of-day (hourly/minute) encodings on historical time-series data to generate precise mathematical predictions.
+*   **Analyze Live IoT Data:** Once connected to the Raspberry Pi weather station via USB or Wi-Fi (MQTT), you can ask about live conditions (e.g., *"Is it raining right now?"* or *"What is the current air quality?"*).
+*   **Generate Interactive Charts:** You can request visual data representations (e.g., *"Plot the temperature trend"* or *"Show me an actual vs predicted scatter plot"*). The local LLM will dynamically generate Plotly.js JSON blocks that render directly in your chat window.
+*   **Explainable AI (XAI):** The bot isn't a black box. You can ask *"Why did you make this prediction?"* or *"Which sensor matters most?"* and the bot will analyze the PyTorch model's internal attention weights to explain its reasoning.
+*   **Suggest Follow-Ups:** Based on your current conversation, the built-in recommendation engine provides context-aware chips at the bottom of the chat to guide your analysis.
+
+### How to Use It:
+1.  **Upload Data:** Navigate to the **Raw Dataset** tab in the UI to upload a historical weather CSV file. The backend will automatically clean the data and train the PyTorch GNN baseline model.
+2.  **Connect Hardware:** In the **Settings** or via chat, instruct the bot to connect to your Raspberry Pi via Serial (USB) or MQTT (Wi-Fi).
+3.  **Start Chatting:** Navigate to the **Chat** tab and simply type your questions in natural language. The system's NLP engine will determine if you are asking for live data, historical analysis, or a chart, and the LLM will synthesize the response.
 
 ---
 
@@ -76,16 +94,31 @@ The following key features and upgrades have been successfully completed:
 3.  **Local LLM Integration**: Configured Ollama settings (`temperature=0.1`, `num_ctx=2048`, `top_p=0.4`) to call local Llama models, with direct JSON parsing support for generating Plotly.js charts in real-time.
 4.  **PWA Frontend (Offline First)**: Configured `vite-plugin-pwa` to cache all CSS, JS, HTML, and API endpoints (via service workers using a `NetworkFirst` strategy).
 5.  **BH1750 Ambient Light Cleanout**: Executed a total code purge of "lux", "BH1750", and "light_intensity" from database schemas, sensor configuration widgets, NLG scripts, NLP parsers, and LaTeX research reports.
-6.  **Purge of Tri-Mode References**: Refactored the core prompt context building and user dashboard controls from legacy "Tri-Mode" configurations into a unified "System Mode" architecture.
+6.  **Time-Series Forecasting Upgrades**: Modified the NLP engine and PyTorch ML service to natively process and predict fine-grained time-series datasets (hourly and minute data) using 24-hour and 60-minute sinusoidal encodings, effectively moving past legacy daily formats.
 
 ---
 
-## 🔄 System Modes & Execution Flow
+## 🏛️ System Architecture & Data Pipeline
 
-The system runs under three specific environment modes managed inside `conversation_service.py`:
-*   **Historical Data Mode**: Injects metrics from the trained TabularGAT forecasting model (RMSE, R2, Feature Importances, Date projections). The LLM is strictly instructed to ignore any live sensor queries.
-*   **Live Station Mode**: Injects active telemetry from connected MQTT/Serial nodes combined with GNN spatial delta predictions. Historical CSV data is ignored.
-*   **Prime Mode**: The default state. It merges both live IoT telemetry and historical dataset forecasts, allowing the LLM to synthesize a unified environmental report.
+The WeatherBOT operates on a streamlined, edge-first data pipeline designed to operate entirely without external internet dependencies.
+
+### 1. Data Ingestion Layer (The Edge)
+*   **Hardware Sensors:** Environmental data is physically captured via BME280 (Temperature/Humidity/Pressure), SPS30 (Air Quality), Rain Gauge, and Anemometer.
+*   **IoT Protocols:** The data is transported from the sensor GPIO pins either via a direct **Serial USB (UART)** connection or wirelessly broadcasted over a local **MQTT Broker** running on the edge node.
+*   **File Uploads:** Historical CSV datasets can be manually uploaded via the frontend to train the baseline ML models.
+
+### 2. Processing & Storage Layer (FastAPI Backend)
+*   **Dataset Service:** Uploaded CSVs are cleaned, NaN values are purged, and time-series columns are mathematically encoded into 24-hour/60-minute sinusoidal cycles.
+*   **SQLite Database:** Stores processed datasets, trained model metadata, and user conversation history locally using SQLAlchemy ORM.
+
+### 3. Intelligence Layer (AI & ML)
+*   **NLP Engine:** Fast regex heuristics quickly classify user intent (e.g., Graph Request, Prediction, XAI) and extract entities (time, sensor type) from chat messages to reduce latency.
+*   **PyTorch Graph Neural Network (TabularGAT):** Converts tabular time-series data into a mathematical Graph. It uses K-Nearest Neighbors (KNN) to connect similar historical weather states and applies transductive inference to forecast future time nodes.
+*   **Local LLM (Ollama):** Synthesizes the exact historical records, live IoT telemetry, and GNN mathematical predictions into natural, human-readable responses. It also generates JSON payloads for dynamic Plotly charts.
+
+### 4. Presentation Layer (Vite/React PWA)
+*   **Progressive Web App:** The frontend caches the UI and assets using Service Workers (`NetworkFirst` strategy), ensuring the dashboard loads instantly even if the edge node is offline.
+*   **Interactive Chat & Visualizations:** Users interact via natural language. The UI parses LLM-generated JSON blocks to render live Plotly.js charts directly in the chat feed.
 
 ---
 

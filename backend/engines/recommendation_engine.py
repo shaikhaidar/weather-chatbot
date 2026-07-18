@@ -58,45 +58,22 @@ _SUGGESTIONS: Dict[str, List[str]] = {
     ],
 }
 
-_MODE_SPECIFIC: Dict[str, List[str]] = {
-    "historical data mode": [
-        "Upload a new CSV dataset",
-        "Compare model versions",
-        "Retrain with the latest dataset",
-    ],
-    "live station mode": [
-        "Connect Raspberry Pi via serial",
-        "Run GNN prediction on live data",
-        "Show spatial node graph",
-    ],
-    "prime": [
-        "Fuse historical and live data predictions",
-        "Compare CSV model vs GNN spatial prediction",
-        "Show combined weather intelligence report",
-    ],
-}
 
 
 class RecommendationEngine:
     """
     Suggests the next 3 most relevant follow-up queries based on:
     - Current NLP intent
-    - System mode (historical / live / prime)
     - Available data context
     """
 
     @staticmethod
     def get_recommendations(
         intent: str,
-        system_mode: str = "prime",
         context: Optional[Dict[str, Any]] = None,
         n: int = 3,
     ) -> List[str]:
         pool = list(_SUGGESTIONS.get(intent, _SUGGESTIONS["GENERAL_CHAT"]))
-
-        # Add mode-specific suggestions
-        mode_key = system_mode.lower()
-        pool += _MODE_SPECIFIC.get(mode_key, [])
 
         # Shuffle for variety and return top-n
         random.shuffle(pool)

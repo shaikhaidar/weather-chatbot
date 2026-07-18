@@ -32,7 +32,6 @@ class MessageBase(BaseModel):
 
 class MessageCreate(MessageBase):
     is_online: bool = False
-    system_mode: str = "Prime"
 
 class MessageResponse(MessageBase):
     id: int

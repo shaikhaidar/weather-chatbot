@@ -171,16 +171,13 @@ class MLService:
         }
 
     @staticmethod
-    def predict_weather_for_date(df: pd.DataFrame, target_date) -> Dict[str, Any]:
-        import datetime
-        if not isinstance(target_date, datetime.datetime):
-            raise ValueError("target_date must be a datetime.datetime object")
+    def predict_weather_for_date(df: pd.DataFrame, day: int, month: int) -> Dict[str, Any]:
         df_hash = hashlib.md5(pd.util.hash_pandas_object(df, index=True).values).hexdigest()
-        return MLService._predict_cached(df_hash, df, target_date)
+        return MLService._predict_cached(df_hash, df, day, month)
 
     @staticmethod
     @lru_cache(maxsize=32)
-    def _predict_cached(df_hash: str, df: pd.DataFrame, target_date) -> Dict[str, Any]:
+    def _predict_cached(df_hash: str, df: pd.DataFrame, day: int, month: int) -> Dict[str, Any]:
         """
         Dynamically builds a KNN graph and trains a multi-feature GNN transductively 
         to forecast all generic numeric weather columns.
@@ -203,17 +200,10 @@ class MLService:
             # Feature Engineering: Temporal Cyclical Features
             df_work['day_of_year'] = df_work['parsed_date'].dt.dayofyear
             df_work['month_val'] = df_work['parsed_date'].dt.month
-            df_work['hour_val'] = df_work['parsed_date'].dt.hour
-            df_work['minute_val'] = df_work['parsed_date'].dt.minute
-            
             df_work['sin_day'] = np.sin(2 * np.pi * df_work['day_of_year'] / 365.25)
             df_work['cos_day'] = np.cos(2 * np.pi * df_work['day_of_year'] / 365.25)
-            df_work['sin_hour'] = np.sin(2 * np.pi * df_work['hour_val'] / 24.0)
-            df_work['cos_hour'] = np.cos(2 * np.pi * df_work['hour_val'] / 24.0)
-            df_work['sin_minute'] = np.sin(2 * np.pi * df_work['minute_val'] / 60.0)
-            df_work['cos_minute'] = np.cos(2 * np.pi * df_work['minute_val'] / 60.0)
 
-            feature_cols = ['day_of_year', 'month_val', 'hour_val', 'minute_val', 'sin_day', 'cos_day', 'sin_hour', 'cos_hour', 'sin_minute', 'cos_minute']
+            feature_cols = ['day_of_year', 'month_val', 'sin_day', 'cos_day']
             numeric_weather_cols = list(df_work.select_dtypes(include=['number']).columns)
             numeric_weather_cols = [c for c in numeric_weather_cols if c not in feature_cols]
 
@@ -226,27 +216,17 @@ class MLService:
             if not numeric_weather_cols:
                 return {}
 
-            target_doy = target_date.timetuple().tm_yday
-            sin_target_day = np.sin(2 * np.pi * target_doy / 365.25)
-            cos_target_day = np.cos(2 * np.pi * target_doy / 365.25)
-            
-            sin_target_hour = np.sin(2 * np.pi * target_date.hour / 24.0)
-            cos_target_hour = np.cos(2 * np.pi * target_date.hour / 24.0)
-            
-            sin_target_minute = np.sin(2 * np.pi * target_date.minute / 60.0)
-            cos_target_minute = np.cos(2 * np.pi * target_date.minute / 60.0)
+            import datetime
+            ref_date = datetime.date(2025, month, day)
+            target_doy = ref_date.timetuple().tm_yday
+            sin_target = np.sin(2 * np.pi * target_doy / 365.25)
+            cos_target = np.cos(2 * np.pi * target_doy / 365.25)
 
             target_X = pd.DataFrame([{
                 'day_of_year': target_doy,
-                'month_val': target_date.month,
-                'hour_val': target_date.hour,
-                'minute_val': target_date.minute,
-                'sin_day': sin_target_day,
-                'cos_day': cos_target_day,
-                'sin_hour': sin_target_hour,
-                'cos_hour': cos_target_hour,
-                'sin_minute': sin_target_minute,
-                'cos_minute': cos_target_minute
+                'month_val': month,
+                'sin_day': sin_target,
+                'cos_day': cos_target
             }])
 
             forecasts = {}
@@ -290,9 +270,8 @@ class MLService:
                     
                 forecasts[col] = round(pred_val, 2)
 
-            formatted_target = target_date.strftime("%m/%d %H:%M")
             return {
-                "target_date": formatted_target,
+                "target_date": f"{day:02d}/{month:02d}",
                 "forecasted_features": forecasts,
                 "status": "success"
             }

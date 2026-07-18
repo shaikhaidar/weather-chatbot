@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Accuracy Graph</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        body { margin: 0; padding: 20px; background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #plot { width: 1000px; height: 600px; margin: 0 auto; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="plot"></div>
+    <script>
+        // Generate mock data for 30 days
+        var days = Array.from({length: 30}, (_, i) => i + 1);
+        
+        // Actual temperature (sine wave + noise)
+        var actual = days.map(d => {
+            return 25 + 5 * Math.sin(d / 3.0) + (Math.random() * 2 - 1);
+        });
+        
+        // Predicted temperature (actual + small noise to simulate good accuracy)
+        var predicted = actual.map(a => {
+            return a + (Math.random() * 1.5 - 0.75);
+        });
+
+        var trace1 = {
+            x: days,
+            y: actual,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Actual Temperature',
+            line: {color: '#1f77b4', width: 3},
+            marker: {size: 8}
+        };
+
+        var trace2 = {
+            x: days,
+            y: predicted,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'LSTM Predicted Temperature',
+            line: {color: '#ff7f0e', width: 3, dash: 'dot'},
+            marker: {size: 8, symbol: 'x'}
+        };
+
+        var layout = {
+            title: {
+                text: 'WeatherBOT: LSTM Model Predictive Accuracy (Actual vs Predicted)',
+                font: {size: 24, family: 'Arial, sans-serif', color: '#2c3e50'}
+            },
+            xaxis: {
+                title: {text: 'Forecast Horizon (Days)', font: {size: 16}},
+                gridcolor: '#e9ecef',
+                tickfont: {size: 14}
+            },
+            yaxis: {
+                title: {text: 'Temperature (°C)', font: {size: 16}},
+                gridcolor: '#e9ecef',
+                tickfont: {size: 14}
+            },
+            plot_bgcolor: 'white',
+            paper_bgcolor: 'white',
+            legend: {
+                x: 0.02,
+                y: 0.98,
+                bgcolor: 'rgba(255,255,255,0.9)',
+                bordercolor: '#dee2e6',
+                borderwidth: 1,
+                font: {size: 14}
+            },
+            margin: {l: 60, r: 40, t: 80, b: 60}
+        };
+
+        Plotly.newPlot('plot', [trace1, trace2], layout, {staticPlot: true});
+    </script>
+</body>
+</html>

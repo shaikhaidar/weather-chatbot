@@ -72,7 +72,6 @@ def get_historical_prediction(db: Session = Depends(get_db)) -> Dict[str, Any]:
 @router.get("/recommendations")
 def get_recommendations(
     intent: str = Query(default="GENERAL_CHAT"),
-    system_mode: str = Query(default="prime"),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Get contextual follow-up query recommendations."""
@@ -86,7 +85,7 @@ def get_recommendations(
     iot_status = IoTService.get_status()
     iot_connected = iot_status.get("connected", False)
 
-    suggestions = RecommendationEngine.get_recommendations(intent, system_mode)
+    suggestions = RecommendationEngine.get_recommendations(intent)
     data_driven = RecommendationEngine.get_data_driven_recommendations(
         has_dataset, has_active_model, iot_connected
     )

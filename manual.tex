@@ -1,0 +1,58 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Manual for Creating a Document}
+\author{Author Name}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+This manual provides instructions on how to create a basic document using LaTeX.
+
+\section{Document Structure}
+A basic LaTeX document consists of a preamble and a document body.
+
+\subsection{Preamble}
+The preamble contains document class declarations, packages, and metadata like title, author, and date.
+
+\subsection{Document Body}
+The document body is enclosed within \texttt{\textbackslash begin\{document\}} and \texttt{\textbackslash end\{document\}} tags.
+
+\section{Basic Formatting}
+\begin{itemize}
+    \item \textbf{Bold text} is created using \texttt{\textbackslash textbf\{\}}.
+    \item \textit{Italic text} is created using \texttt{\textbackslash textit\{\}}.
+    \item \underline{Underlined text} is created using \texttt{\textbackslash underline\{\}}.
+\end{itemize}
+
+\section{Lists}
+You can create bulleted or numbered lists.
+
+\subsection{Bulleted Lists}
+\begin{itemize}
+    \item Item 1
+    \item Item 2
+\end{itemize}
+
+\subsection{Numbered Lists}
+\begin{enumerate}
+    \item First item
+    \item Second item
+\end{enumerate}
+
+\section{Conclusion}
+You now have the basics to start creating your own documents in LaTeX.
+
+\end{document}
